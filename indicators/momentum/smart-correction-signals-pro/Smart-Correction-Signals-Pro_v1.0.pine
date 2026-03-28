@@ -1,0 +1,68 @@
+//@version=6
+indicator('Smart Correction Signals Pro', overlay=true)
+
+// ====== إعدادات عامة ======
+showEMA = input.bool(true, title="Show EMA 20 & EMA 50")
+showRSI = input.bool(true, title="Show RSI Signals")
+showMACD = input.bool(true, title="Show MACD Crosses")
+showBollinger = input.bool(true, title="Show Bollinger Bands")
+showSwings = input.bool(true, title="Show Swing High/Low")
+
+// ====== إعدادات المؤشرات ======
+lengthEMA1 = input.int(20, title='EMA 20 Length')
+lengthEMA2 = input.int(50, title='EMA 50 Length')
+lengthRSI = input.int(14, title='RSI Length')
+lengthMACDShort = input.int(12, title='MACD Short Length')
+lengthMACDLong = input.int(26, title='MACD Long Length')
+lengthMACDSignal = input.int(9, title='MACD Signal Smoothing')
+bollingerLength = input.int(20, title='Bollinger Bands Length')
+bollingerMult = input.float(2.0, title='Bollinger Bands Multiplier')
+swingLength = input.int(5, title='Swing High/Low Length')
+
+// ====== حساب المؤشرات ======
+ema20 = ta.ema(close, lengthEMA1)
+ema50 = ta.ema(close, lengthEMA2)
+plot(showEMA ? ema20 : na, title='EMA 20', color=color.blue)
+plot(showEMA ? ema50 : na, title='EMA 50', color=color.red)
+
+rsi = ta.rsi(close, lengthRSI)
+rsiOverbought = 70
+rsiOversold = 30
+plotshape(showRSI and (rsi > rsiOverbought), title="RSI Overbought", location=location.abovebar, color=color.red, style=shape.triangledown, size=size.small)
+plotshape(showRSI and (rsi < rsiOversold), title="RSI Oversold", location=location.belowbar, color=color.green, style=shape.triangleup, size=size.small)
+
+[macdLine, signalLine, _] = ta.macd(close, lengthMACDShort, lengthMACDLong, lengthMACDSignal)
+macdCrossUp = ta.crossover(macdLine, signalLine)
+macdCrossDown = ta.crossunder(macdLine, signalLine)
+plotshape(showMACD and macdCrossUp, title="MACD Bullish Cross", location=location.belowbar, color=color.lime, style=shape.labelup, size=size.small)
+plotshape(showMACD and macdCrossDown, title="MACD Bearish Cross", location=location.abovebar, color=color.fuchsia, style=shape.labeldown, size=size.small)
+
+basis = ta.sma(close, bollingerLength)
+dev = bollingerMult * ta.stdev(close, bollingerLength)
+upper = basis + dev
+lower = basis - dev
+plot(showBollinger ? basis : na, color=color.gray)
+p1 = plot(showBollinger ? upper : na, color=color.orange)
+p2 = plot(showBollinger ? lower : na, color=color.orange)
+fill(p1, p2, color=color.new(color.orange, 85))
+
+isSwingHigh = ta.highestbars(high, swingLength) == 0
+isSwingLow = ta.lowestbars(low, swingLength) == 0
+plotshape(showSwings and isSwingHigh, title="Swing High", location=location.abovebar, color=color.fuchsia, style=shape.arrowdown, size=size.small)
+plotshape(showSwings and isSwingLow, title="Swing Low", location=location.belowbar, color=color.lime, style=shape.arrowup, size=size.small)
+
+var float lastHigh = na
+var float lastLow = na
+if isSwingHigh
+    lastHigh := high
+if isSwingLow
+    lastLow := low
+
+fib_38 = lastHigh - (lastHigh - lastLow) * 0.382
+fib_50 = lastHigh - (lastHigh - lastLow) * 0.5
+fib_61 = lastHigh - (lastHigh - lastLow) * 0.618
+plot(lastHigh, color=color.red, style=plot.style_circles, title="Last High")
+plot(lastLow, color=color.green, style=plot.style_circles, title="Last Low")
+plot(fib_38, color=color.yellow, style=plot.style_circles, title="Fib 38.2%")
+plot(fib_50, color=color.teal, style=plot.style_circles, title="Fib 50%")
+plot(fib_61, color=color.blue, style=plot.style_circles, title="Fib 61.8%")
