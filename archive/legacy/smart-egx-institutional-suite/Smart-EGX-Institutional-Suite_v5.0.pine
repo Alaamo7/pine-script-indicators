@@ -1,0 +1,6 @@
+//@version=6
+indicator("Smart EGX Institutional Suite v5", overlay=true)
+
+// Simplified archived version placeholder for legacy reference
+ema50 = ta.ema(close,50)
+plot(ema50,color=color.blue)
