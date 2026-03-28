@@ -1,0 +1,75 @@
+//@version=6
+indicator("📊 EGX Pro Matrix + MTF Filter", overlay=true, max_labels_count=500)
+
+// ==========================================
+// 1. Inputs (إعدادات الفريمات والفلترة)
+// ==========================================
+groupMTF     = "🌍 فلتر الفريم الأكبر (MTF)"
+htfRes       = input.timeframe("240", "اختر الفريم الأكبر للتأكيد", group=groupMTF)
+useMTFFilter = input.bool(true, "تفعيل فلتر الاتجاه الأكبر؟", group=groupMTF)
+
+groupLevels  = "🎯 إعدادات المستويات"
+offset       = input.int(10, "إزاحة الملصقات لليمين", group=groupLevels)
+
+// ==========================================
+// 2. MTF Logic (جلب بيانات الفريم الأكبر)
+// ==========================================
+htfTrendBull = request.security(syminfo.tickerid, htfRes, close > ta.ema(close, 50), lookahead=barmerge.lookahead_on)
+htfTrendBear = request.security(syminfo.tickerid, htfRes, close < ta.ema(close, 50), lookahead=barmerge.lookahead_on)
+
+// ==========================================
+// 3. Price Levels (ميزان السوق والمستهدفات)
+// ==========================================
+pHigh = request.security(syminfo.tickerid, "D", high[1], lookahead=barmerge.lookahead_on)
+pLow  = request.security(syminfo.tickerid, "D", low[1], lookahead=barmerge.lookahead_on)
+pClose= request.security(syminfo.tickerid, "D", close[1], lookahead=barmerge.lookahead_on)
+
+pivot = (pHigh + pLow + pClose) / 3
+r1 = (2 * pivot) - pLow
+r2 = pivot + (pHigh - pLow)
+s1 = (2 * pivot) - pHigh
+s2 = pivot - (pHigh - pLow)
+
+// ==========================================
+// 4. Signals with MTF (الإشارات المفلترة)
+// ==========================================
+ema50 = ta.ema(close, 50)
+localBuyCondition  = ta.crossover(close, pivot) and close > ema50
+localSellCondition = ta.crossunder(close, pivot) and close < ema50
+
+buySignal  = useMTFFilter ? (localBuyCondition and htfTrendBull) : localBuyCondition
+sellSignal = useMTFFilter ? (localSellCondition and htfTrendBear) : localSellCondition
+
+// ==========================================
+// 5. Visual Layer (الرسم والملصقات)
+// ==========================================
+plot(ema50, color=color.new(color.aqua, 0), title="مسار السيولة")
+plotshape(buySignal, "دخول مؤكد (MTF)", shape.triangleup, location.belowbar, color.lime, size=size.small, text="دخول مؤكد")
+plotshape(sellSignal, "خروج مؤكد (MTF)", shape.triangledown, location.abovebar, color.red, size=size.small, text="خروج مؤكد")
+
+f_drawLabel(_price, _text, _color) =>
+    var label lbl = na
+    if barstate.islast
+        label.delete(lbl)
+        lbl := label.new(bar_index + offset, _price, _text + ": " + str.tostring(_price, "#.##"), color=_color, textcolor=color.white, style=label.style_label_left, size=size.small)
+
+f_drawLabel(r2, "🚀 مستهدف 2", color.rgb(255, 50, 50))
+f_drawLabel(r1, "🧱 مقاومة 1", color.rgb(200, 0, 0))
+f_drawLabel(pivot, "⚖️ ميزان السوق", color.rgb(41, 98, 255))
+f_drawLabel(s1, "🛡️ دعم 1", color.rgb(0, 150, 136))
+f_drawLabel(s2, "🛑 وقف خسارة", color.rgb(56, 142, 60))
+
+// ==========================================
+// 6. Enhanced Dashboard (الداشبورد المطور)
+// ==========================================
+var table dash = table.new(position.top_right, 2, 5, border_width=1, frame_color=color.gray)
+if barstate.islast
+    table.cell(dash, 0, 0, "المنظومة الذكية", bgcolor=color.black, text_color=color.white)
+    table.cell(dash, 1, 0, "الحالة", bgcolor=color.black, text_color=color.white)
+    table.cell(dash, 0, 1, "إشارة الفريم الحالي:", bgcolor=color.rgb(30, 30, 30), text_color=color.white)
+    table.cell(dash, 1, 1, close > pivot ? "إيجابي" : "سلبي", bgcolor=close > pivot ? color.green : color.red, text_color=color.white)
+    table.cell(dash, 0, 2, "الاتجاه العام (" + htfRes + "):", bgcolor=color.rgb(30, 30, 30), text_color=color.white)
+    table.cell(dash, 1, 2, htfTrendBull ? "صاعد 📈" : "هابط 📉", bgcolor=htfTrendBull ? color.teal : color.maroon, text_color=color.white)
+    string finalDec = buySignal ? "فرصة شراء آمنة" : sellSignal ? "خروج/انتظار" : "تراقب السيولة"
+    table.cell(dash, 0, 3, "القرار النهائي:", bgcolor=color.black, text_color=color.yellow)
+    table.cell(dash, 1, 3, finalDec, bgcolor=color.black, text_color=color.yellow)
