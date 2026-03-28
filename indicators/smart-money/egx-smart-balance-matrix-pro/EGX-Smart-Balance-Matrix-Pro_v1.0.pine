@@ -1,0 +1,208 @@
+﻿//@version=6
+indicator("📊 EGX Smart Balance Matrix Pro", overlay=true, max_lines_count=500, max_labels_count=500)
+
+
+// ==========================================
+// 1. Inputs (المدخلات المنظمة)
+// ==========================================
+groupGen    = "⚙️ الإعدادات العامة"
+groupTrend  = "📈 الاتجاه والزخم"
+groupLiq    = "💧 السيولة والفوليوم"
+groupSMC    = "🏛️ الهيكل السعري (SMC)"
+groupDash   = "🎛️ الداشبورد"
+
+
+// الاتجاه
+emaFastLen  = input.int(50, title="EMA سريع (اتجاه متوسط)", group=groupTrend)
+emaSlowLen  = input.int(200, title="EMA بطيء (اتجاه رئيسي)", group=groupTrend)
+
+
+// الزخم
+rsiLen      = input.int(14, title="فترة RSI", group=groupTrend)
+macdFast    = input.int(12, title="MACD سريع", group=groupTrend)
+macdSlow    = input.int(26, title="MACD بطيء", group=groupTrend)
+macdSig     = input.int(9, title="MACD إشارة", group=groupTrend)
+
+
+// السيولة
+volMaLen    = input.int(20, title="متوسط الفوليوم", group=groupLiq)
+volSpike    = input.float(1.5, title="مضاعف طفرة الفوليوم", step=0.1, group=groupLiq)
+
+
+// SMC
+pivotLen    = input.int(5, title="طول الارتكاز (Pivots)", minval=2, group=groupSMC)
+
+
+// الداشبورد
+dashPosOpt  = input.string("Middle Right", title="موقع الداشبورد", options=["Top Right", "Middle Right", "Bottom Right"], group=groupDash)
+showDash    = input.bool(true, title="إظهار الداشبورد الشامل؟", group=groupDash)
+
+
+// ==========================================
+// 2. Trend Engine (محرك الاتجاه)
+// ==========================================
+emaFast = ta.ema(close, emaFastLen)
+emaSlow = ta.ema(close, emaSlowLen)
+
+
+isBullTrend = close > emaFast and emaFast > emaSlow
+isBearTrend = close < emaFast and emaFast < emaSlow
+
+
+// ==========================================
+// 3. Technical Indicators (المؤشرات الفنية الأساسية)
+// ==========================================
+rsiVal = ta.rsi(close, rsiLen)
+[macdLine, signalLine, _] = ta.macd(close, macdFast, macdSlow, macdSig)
+
+
+isMomBull = rsiVal > 50 and macdLine > signalLine
+isMomBear = rsiVal < 50 and macdLine < signalLine
+
+
+// ==========================================
+// 4. Volume & Liquidity (السيولة والفوليوم)
+// ==========================================
+volMa = ta.sma(volume, volMaLen)
+isVolSpike = volume > (volMa * volSpike)
+
+
+liqState = isVolSpike and close > open ? "سيولة داخلة ⬆" : isVolSpike and close < open ? "سيولة خارجة ⬇" : "طبيعية ≋"
+liqColor = isVolSpike and close > open ? color.lime : isVolSpike and close < open ? color.red : color.gray
+
+
+// ==========================================
+// 5. SMC Logic & Structure (المنطق المؤسسي)
+// ==========================================
+ph = ta.pivothigh(high, pivotLen, pivotLen)
+pl = ta.pivotlow(low, pivotLen, pivotLen)
+
+
+var float lastSwingHigh = na
+var float lastSwingLow  = na
+
+
+if not na(ph)
+    lastSwingHigh := ph
+if not na(pl)
+    lastSwingLow := pl
+
+
+isBOS_Up = not na(lastSwingHigh) and ta.crossover(close, lastSwingHigh)
+isBOS_Dn = not na(lastSwingLow)  and ta.crossunder(close, lastSwingLow)
+
+
+wickUpper = high - math.max(close, open)
+wickLower = math.min(close, open) - low
+body      = math.abs(close - open)
+
+
+isSweepHigh = high > nz(lastSwingHigh) and close < nz(lastSwingHigh) and (wickUpper > body * 1.5) and isVolSpike
+isSweepLow  = low < nz(lastSwingLow) and close > nz(lastSwingLow) and (wickLower > body * 1.5) and isVolSpike
+
+
+// ==========================================
+// 6. Score System (نظام النقاط الذكي)
+// ==========================================
+int score = 0
+
+
+score += isBullTrend ? 2 : isBearTrend ? -2 : 0
+score += isMomBull ? 1 : isMomBear ? -1 : 0
+score += isVolSpike and close > open ? 1 : isVolSpike and close < open ? -1 : 0
+score += isSweepLow ? 2 : isSweepHigh ? -2 : 0
+
+
+string decision = score >= 4 ? "شراء قوي 🚀" : score >= 2 ? "تجميع / صاعد ↗" : score <= -4 ? "بيع قوي 🚨" : score <= -2 ? "تصريف / هابط ↘" : "حياد / انتظار ⏳"
+color decColor  = score >= 4 ? color.lime : score >= 2 ? color.green : score <= -4 ? color.red : score <= -2 ? color.maroon : color.orange
+
+
+// ==========================================
+// 7. Signal Engine (طبقة الإشارات)
+// ==========================================
+bool buySignal  = ta.crossover(score, 3)
+bool sellSignal = ta.crossunder(score, -3)
+
+
+// ==========================================
+// 8. Visual Layer (الطبقة البصرية)
+// ==========================================
+plot(emaFast, color=color.new(color.aqua, 0), title="EMA Fast", linewidth=2)
+plot(emaSlow, color=color.new(color.purple, 0), title="EMA Slow", linewidth=2)
+
+
+plotshape(buySignal, title="Buy", location=location.belowbar, color=color.lime, style=shape.triangleup, size=size.small, text="▲")
+plotshape(sellSignal, title="Sell", location=location.abovebar, color=color.red, style=shape.triangledown, size=size.small, text="▼")
+plotshape(isSweepLow, title="Sweep Low", location=location.belowbar, color=color.orange, style=shape.circle, size=size.tiny, text="⊙")
+plotshape(isSweepHigh, title="Sweep High", location=location.abovebar, color=color.orange, style=shape.circle, size=size.tiny, text="⊙")
+
+
+// ==========================================
+// 9. Balance & Targets Logic (الارتكاز والأهداف)
+// ==========================================
+float pivot = (high[1] + low[1] + close[1]) / 3
+float r1 = (2 * pivot) - low[1]
+float s1 = (2 * pivot) - high[1]
+float r2 = pivot + (high[1] - low[1])
+float s2 = pivot - (high[1] - low[1])
+
+
+// ==========================================
+// 10. Dashboard (الداشبورد التحليلي الشامل)
+// ==========================================
+string pos = dashPosOpt == "Top Right" ? position.top_right : dashPosOpt == "Bottom Right" ? position.bottom_right : position.middle_right
+var table dash = table.new(pos, 2, 11, border_width=1, frame_color=color.rgb(43, 43, 43), border_color=color.rgb(43, 43, 43))
+
+
+if barstate.islast and showDash
+    table.cell(dash, 0, 0, "ميزان السوق EGX ⚖️", text_color=color.white, bgcolor=color.rgb(20, 20, 20), text_size=size.small)
+    table.cell(dash, 1, 0, syminfo.ticker, text_color=color.yellow, bgcolor=color.rgb(20, 20, 20), text_size=size.small)
+
+
+    table.cell(dash, 0, 1, "🎯 المستهدف 2:", text_color=color.white, bgcolor=color.rgb(150, 0, 0), text_size=size.small, text_halign=text.align_right)
+    table.cell(dash, 1, 1, str.tostring(r2, "#.##"), text_color=color.white, bgcolor=color.rgb(150, 0, 0), text_size=size.small)
+
+
+    table.cell(dash, 0, 2, "🛡️ المقاومة 1:", text_color=color.white, bgcolor=color.rgb(180, 50, 50), text_size=size.small, text_halign=text.align_right)
+    table.cell(dash, 1, 2, str.tostring(r1, "#.##"), text_color=color.white, bgcolor=color.rgb(180, 50, 50), text_size=size.small)
+
+
+    color pivotBg = close > pivot ? color.rgb(0, 100, 0) : color.rgb(100, 0, 0)
+    table.cell(dash, 0, 3, "📍 الارتكاز (Pivot):", text_color=color.white, bgcolor=color.rgb(200, 120, 0), text_size=size.small, text_halign=text.align_right)
+    table.cell(dash, 1, 3, str.tostring(pivot, "#.##"), text_color=color.white, bgcolor=pivotBg, text_size=size.small)
+
+
+    table.cell(dash, 0, 4, "🧱 الدعم 1:", text_color=color.black, bgcolor=color.rgb(0, 180, 0), text_size=size.small, text_halign=text.align_right)
+    table.cell(dash, 1, 4, str.tostring(s1, "#.##"), text_color=color.black, bgcolor=color.rgb(0, 180, 0), text_size=size.small)
+
+
+    table.cell(dash, 0, 5, "🛑 وقف الخسارة:", text_color=color.white, bgcolor=color.rgb(0, 100, 0), text_size=size.small, text_halign=text.align_right)
+    table.cell(dash, 1, 5, str.tostring(s2, "#.##"), text_color=color.white, bgcolor=color.rgb(0, 100, 0), text_size=size.small)
+
+
+    table.cell(dash, 0, 6, "--- ملخص السيولة والزخم ---", text_color=color.gray, bgcolor=color.black, text_size=size.tiny, text_halign=text.align_center)
+    table.merge_cells(dash, 0, 6, 1, 6)
+
+
+    table.cell(dash, 0, 7, "💧 حالة السيولة:", text_color=color.white, bgcolor=color.rgb(30, 30, 40), text_size=size.small, text_halign=text.align_right)
+    table.cell(dash, 1, 7, liqState, text_color=liqColor, bgcolor=color.rgb(30, 30, 40), text_size=size.small)
+
+
+    table.cell(dash, 0, 8, "⚡ الزخم الحالي:", text_color=color.white, bgcolor=color.rgb(30, 30, 40), text_size=size.small, text_halign=text.align_right)
+    table.cell(dash, 1, 8, isMomBull ? "إيجابي" : isMomBear ? "سلبي" : "متذبذب", text_color=isMomBull ? color.lime : isMomBear ? color.red : color.orange, bgcolor=color.rgb(30, 30, 40), text_size=size.small)
+
+
+    table.cell(dash, 0, 9, "📊 التقييم (Score):", text_color=color.white, bgcolor=color.rgb(30, 30, 40), text_size=size.small, text_halign=text.align_right)
+    table.cell(dash, 1, 9, str.tostring(score) + "/5", text_color=decColor, bgcolor=color.rgb(30, 30, 40), text_size=size.small)
+
+
+    table.cell(dash, 0, 10, "القرار النهائي:", text_color=color.black, bgcolor=decColor, text_size=size.normal, text_halign=text.align_right)
+    table.cell(dash, 1, 10, decision, text_color=color.black, bgcolor=decColor, text_size=size.normal)
+
+
+// ==========================================
+// 11. Alerts / Risk Logic (التنبيهات)
+// ==========================================
+alertcondition(buySignal, title="إشارة شراء مؤكدة", message="تم رصد إشارة شراء استناداً لنظام النقاط والسيولة.")
+alertcondition(sellSignal, title="إشارة بيع مؤكدة", message="تحذير: ضغط بيعي وتصريف سيولة يرجح الهبوط.")
+alertcondition(isSweepLow, title="سحب سيولة (قاع)", message="تم سحب سيولة من قاع سابق مع فوليوم عالي (احتمال ارتداد).")
