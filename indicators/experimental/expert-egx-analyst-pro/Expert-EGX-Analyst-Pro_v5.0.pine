@@ -1,0 +1,124 @@
+//@version=6
+indicator("Expert EGX Analyst Pro v5", overlay=true, max_lines_count=200, max_boxes_count=100)
+
+//====================
+// SETTINGS
+//====================
+groupCore = "Core"
+showMA = input.bool(true,"Show Moving Averages",group=groupCore)
+showSignals = input.bool(true,"Show Signals",group=groupCore)
+showDashboard = input.bool(true,"Show Dashboard",group=groupCore)
+
+//====================
+// TREND ENGINE
+//====================
+ema13 = ta.ema(close,13)
+ema30 = ta.ema(close,30)
+ema72 = ta.ema(close,72)
+ema144 = ta.ema(close,144)
+plot(showMA ? ema13 : na,"EMA13",color=color.orange)
+plot(showMA ? ema30 : na,"EMA30",color=color.blue)
+plot(showMA ? ema72 : na,"EMA72",color=color.aqua)
+plot(showMA ? ema144 : na,"EMA144",color=color.fuchsia)
+
+vwap = ta.vwap
+plot(showMA ? vwap : na,"VWAP",color=color.yellow)
+
+//====================
+// MOMENTUM
+//====================
+rsi = ta.rsi(close,14)
+[plusDI,minusDI,adx] = ta.dmi(14,14)
+
+//====================
+// MARKET STRUCTURE
+//====================
+ph = ta.pivothigh(high,3,3)
+pl = ta.pivotlow(low,3,3)
+
+var float lastHigh = na
+var float lastLow = na
+if not na(ph)
+    lastHigh := ph
+if not na(pl)
+    lastLow := pl
+
+bosUp = close > lastHigh
+bosDown = close < lastLow
+
+if showSignals and bosUp
+    label.new(bar_index,high,"BOS",color=color.green)
+if showSignals and bosDown
+    label.new(bar_index,low,"BOS",color=color.red)
+
+//====================
+// LIQUIDITY POOLS
+//====================
+if not na(ph)
+    line.new(bar_index,ph,bar_index+30,ph,color=color.red)
+if not na(pl)
+    line.new(bar_index,pl,bar_index+30,pl,color=color.green)
+
+//====================
+// FVG DETECTOR
+//====================
+bullFVG = low[1] > high[2]
+bearFVG = high[1] < low[2]
+
+if showSignals and bullFVG
+    box.new(bar_index-2,high[2],bar_index,low[1],bgcolor=color.new(color.green,80))
+if showSignals and bearFVG
+    box.new(bar_index-2,high[1],bar_index,low[2],bgcolor=color.new(color.red,80))
+
+//====================
+// ORDER BLOCK
+//====================
+bullOB = close > open and close[1] < open[1] and close > high[1]
+bearOB = close < open and close[1] > open[1] and close < low[1]
+
+if showSignals and bullOB
+    label.new(bar_index,low,"Bull OB",color=color.green)
+if showSignals and bearOB
+    label.new(bar_index,high,"Bear OB",color=color.red)
+
+//====================
+// VOLUME
+//====================
+volMA = ta.sma(volume,20)
+volSpike = volume > volMA * 2
+
+//====================
+// MTF TREND
+//====================
+trend15 = request.security(syminfo.tickerid,"15",close)
+trend60 = request.security(syminfo.tickerid,"60",close)
+trendD  = request.security(syminfo.tickerid,"D",close)
+trendHTF = trendD > ta.ema(trendD,50) ? "Bull" : "Bear"
+
+//====================
+// SCORE SYSTEM
+//====================
+score = 0
+score += close > ema30 ? 1 : -1
+score += rsi > 50 ? 1 : -1
+score += adx > 25 ? 1 : 0
+score += volSpike ? 1 : 0
+scoreText = score >= 3 ? "Strong Bull" : score <= -3 ? "Strong Bear" : "Neutral"
+
+//====================
+// DASHBOARD
+//====================
+var table dashboard = table.new(position.top_right,2,6,border_width=1)
+if showDashboard and barstate.islast
+    table.cell(dashboard,0,0,"Trend")
+    table.cell(dashboard,1,0,trendHTF)
+    table.cell(dashboard,0,1,"RSI")
+    table.cell(dashboard,1,1,str.tostring(rsi))
+    table.cell(dashboard,0,2,"ADX")
+    table.cell(dashboard,1,2,str.tostring(adx))
+    table.cell(dashboard,0,3,"Volume")
+    table.cell(dashboard,1,3,volSpike ? "Spike" : "Normal")
+    table.cell(dashboard,0,4,"Score")
+    table.cell(dashboard,1,4,scoreText)
+    table.cell(dashboard,0,5,"Price")
+    table.cell(dashboard,1,5,str.tostring(close))
