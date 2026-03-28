@@ -1,0 +1,17 @@
+# OS / Editor
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+
+# Temporary exports
+*.tmp
+*.bak
+*.old
+
+# Logs
+*.log
+
+# Local notes
+notes-private/
+scratch/

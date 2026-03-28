@@ -1,0 +1,53 @@
+//@version=6
+//=============================================================================
+// Full Name : New Indicator
+// Short Name: NewInd
+// Type      : Indicator
+// Status    : Experimental
+// Version   : v0.1
+// Author    : Alaamo7
+//
+// Summary:
+// Briefly describe what this script does, what problem it solves,
+// and what kind of chart behavior it is designed to analyze.
+//
+// Default Settings:
+// Document key defaults here if inputs are intentionally limited or removed.
+//=============================================================================
+
+indicator("New Indicator", shorttitle="NewInd", overlay=true)
+
+//-----------------------------------------------------------------------------
+// Inputs
+//-----------------------------------------------------------------------------
+length = input.int(14, "Length", minval=1)
+source = input.source(close, "Source")
+
+//-----------------------------------------------------------------------------
+// Core Calculations
+//-----------------------------------------------------------------------------
+value = ta.sma(source, length)
+
+//-----------------------------------------------------------------------------
+// Conditions
+//-----------------------------------------------------------------------------
+bullish = close > value
+bearish = close < value
+
+//-----------------------------------------------------------------------------
+// Plotting
+//-----------------------------------------------------------------------------
+plot(value, title="Main Value")
+
+//-----------------------------------------------------------------------------
+// Alerts
+//-----------------------------------------------------------------------------
+alertcondition(bullish, title="Bullish Condition", message="Bullish condition triggered")
+alertcondition(bearish, title="Bearish Condition", message="Bearish condition triggered")
+
+//-----------------------------------------------------------------------------
+// Notes / TODO
+//-----------------------------------------------------------------------------
+// - Add filters
+// - Add dashboard if needed
+// - Improve signal confirmation logic

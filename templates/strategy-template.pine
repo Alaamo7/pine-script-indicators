@@ -1,0 +1,50 @@
+//@version=6
+//=============================================================================
+// Full Name : New Strategy
+// Short Name: NewStrat
+// Type      : Strategy
+// Status    : Experimental
+// Version   : v0.1
+// Author    : Alaamo7
+//
+// Summary:
+// Describe the trading logic, use case, and key assumptions.
+//
+// Default Settings:
+// Document major defaults here.
+//=============================================================================
+
+strategy("New Strategy", shorttitle="NewStrat", overlay=true, initial_capital=100000)
+
+//-----------------------------------------------------------------------------
+// Inputs
+//-----------------------------------------------------------------------------
+fastLen = input.int(9, "Fast Length", minval=1)
+slowLen = input.int(21, "Slow Length", minval=1)
+
+//-----------------------------------------------------------------------------
+// Core Calculations
+//-----------------------------------------------------------------------------
+fastMA = ta.ema(close, fastLen)
+slowMA = ta.ema(close, slowLen)
+
+//-----------------------------------------------------------------------------
+// Conditions
+//-----------------------------------------------------------------------------
+longCondition = ta.crossover(fastMA, slowMA)
+exitCondition = ta.crossunder(fastMA, slowMA)
+
+//-----------------------------------------------------------------------------
+// Orders
+//-----------------------------------------------------------------------------
+if longCondition
+    strategy.entry("Long", strategy.long)
+
+if exitCondition
+    strategy.close("Long")
+
+//-----------------------------------------------------------------------------
+// Plotting
+//-----------------------------------------------------------------------------
+plot(fastMA, title="Fast EMA")
+plot(slowMA, title="Slow EMA")
