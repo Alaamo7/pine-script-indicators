@@ -1,0 +1,85 @@
+//@version=6
+// Full Name: Reverse Scalping SMA 9/21 + RSI Strategy (Fast: 9, Slow: 21, RSI: 14)
+strategy("Reverse SMA+RSI Strategy", shorttitle="REV_SMA_RSI", overlay=true, initial_capital=10000, default_qty_type=strategy.percent_of_equity, default_qty_value=10)
+
+// ==========================================
+// 1. Inputs - إعدادات المدخلات
+// ==========================================
+groupSMA  = "إعدادات المتوسطات المتحركة"
+smaFastLen = input.int(9, "طول SMA السريع", minval=1, group=groupSMA)
+smaSlowLen = input.int(21, "طول SMA البطيء", minval=1, group=groupSMA)
+
+groupRSI  = "إعدادات مؤشر القوة النسبية"
+rsiLen    = input.int(14, "طول RSI", minval=1, group=groupRSI)
+rsiOverSold = input.int(30, "حد التشبع البيعي", group=groupRSI)
+rsiOverBought = input.int(70, "حد التشبع الشرائي", group=groupRSI)
+
+groupVisual = "العرض البصري"
+showDashboard = input.bool(true, "إظهار لوحة البيانات", group=groupVisual)
+
+// ==========================================
+// 2. Trend Engine - محرك الاتجاه
+// ==========================================
+smaFast = ta.sma(close, smaFastLen)
+smaSlow = ta.sma(close, smaSlowLen)
+
+plot(smaFast, color=color.aqua, linewidth=2, title="SMA 9")
+plot(smaSlow, color=color.orange, linewidth=2, title="SMA 21")
+
+// ==========================================
+// 3. Technical Indicators - المؤشرات الفنية
+// ==========================================
+rsiValue = ta.rsi(close, rsiLen)
+
+isOversold = ta.lowest(rsiValue, 5) <= rsiOverSold
+isOverbought = ta.highest(rsiValue, 5) >= rsiOverBought
+
+// ==========================================
+// 4. Score System - نظام النقاط الذكي
+// ==========================================
+int score = 0
+score += ta.crossover(smaFast, smaSlow) ? 2 : 0
+score -= ta.crossunder(smaFast, smaSlow) ? 2 : 0
+score += isOversold ? 2 : 0
+score -= isOverbought ? 2 : 0
+
+// ==========================================
+// 5. Signal Engine - محرك الإشارات
+// ==========================================
+longCondition  = ta.crossover(smaFast, smaSlow) and isOversold
+shortCondition = ta.crossunder(smaFast, smaSlow) and isOverbought
+
+if longCondition
+    strategy.entry("Long", strategy.long, comment="Buy (SMA Cross + RSI OS)")
+
+if shortCondition
+    strategy.entry("Short", strategy.short, comment="Sell (SMA Cross + RSI OB)")
+
+if ta.crossunder(smaFast, smaSlow)
+    strategy.close("Long", comment="Exit Long")
+
+if ta.crossover(smaFast, smaSlow)
+    strategy.close("Short", comment="Exit Short")
+
+// ==========================================
+// 6. Visual Layer & Dashboard
+// ==========================================
+plotshape(longCondition, style=shape.triangleup, location=location.belowbar, color=color.green, size=size.small, title="إشارة شراء")
+plotshape(shortCondition, style=shape.triangledown, location=location.abovebar, color=color.red, size=size.small, title="إشارة بيع")
+
+var table dash = table.new(position.top_right, 2, 4, border_width=1, border_color=color.gray)
+if showDashboard and barstate.islast
+    table.cell(dash, 0, 0, "المؤشر", bgcolor=color.black, text_color=color.white)
+    table.cell(dash, 1, 0, "الحالة", bgcolor=color.black, text_color=color.white)
+    table.cell(dash, 0, 1, "الاتجاه الحالي")
+    table.cell(dash, 1, 1, smaFast > smaSlow ? "صاعد" : "هابط", bgcolor=smaFast > smaSlow ? color.green : color.red)
+    table.cell(dash, 0, 2, "RSI")
+    table.cell(dash, 1, 2, str.tostring(math.round(rsiValue)), bgcolor=rsiValue > 50 ? color.teal : color.maroon)
+    table.cell(dash, 0, 3, "قوة الإشارة")
+    table.cell(dash, 1, 3, str.tostring(score), bgcolor=math.abs(score) >= 4 ? color.rgb(255, 215, 0) : color.gray)
+
+// ==========================================
+// 7. Alerts - التنبيهات
+// ==========================================
+alertcondition(longCondition, title="تنبيه شراء - علاء", message="تقاطع صاعد مع تشبع بيعي على {{ticker}}")
+alertcondition(shortCondition, title="تنبيه بيع - علاء", message="تقاطع هابط مع تشبع شرائي على {{ticker}}")
