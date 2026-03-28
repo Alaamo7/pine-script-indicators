@@ -1,0 +1,18 @@
+//@version=6
+strategy("Scalping EMA+RSI Strategy", overlay=true)
+
+emaFast = ta.ema(close,9)
+emaSlow = ta.ema(close,21)
+rsi = ta.rsi(close,14)
+
+plot(emaFast,color=color.blue)
+plot(emaSlow,color=color.red)
+
+longCondition = ta.crossover(emaFast, emaSlow) and rsi > 50
+shortCondition = ta.crossunder(emaFast, emaSlow) and rsi < 50
+
+if longCondition
+    strategy.entry("Long", strategy.long)
+
+if shortCondition
+    strategy.entry("Short", strategy.short)
