@@ -1,0 +1,77 @@
+//@version=6
+indicator("📊 EGX Pro Price Matrix", overlay=true, max_labels_count=500, max_lines_count=500)
+
+// ==========================================
+// 1. Inputs & Calculation Logic
+// ==========================================
+groupLevels = "🎯 إعدادات المستويات"
+showLabels  = input.bool(true, "إظهار ملصقات الأسعار جهة اليمين؟", group=groupLevels)
+offset      = input.int(10, "إزاحة الملصقات لليمين", group=groupLevels)
+
+// حسابات الارتكاز (ميزان السوق) بناءً على إغلاق الأمس
+pHigh  = request.security(syminfo.tickerid, "D", high[1], lookahead=barmerge.lookahead_on)
+pLow   = request.security(syminfo.tickerid, "D", low[1], lookahead=barmerge.lookahead_on)
+pClose = request.security(syminfo.tickerid, "D", close[1], lookahead=barmerge.lookahead_on)
+
+pivot = (pHigh + pLow + pClose) / 3
+r1 = (2 * pivot) - pLow
+r2 = pivot + (pHigh - pLow)
+r3 = pHigh + 2 * (pivot - pLow)
+s1 = (2 * pivot) - pHigh
+s2 = pivot - (pHigh - pLow)
+s3 = pLow - 2 * (pHigh - pivot)
+
+rangeVal    = pHigh - pLow
+goldTarget1 = r1 + (rangeVal * 0.382)
+goldTarget2 = s1 - (rangeVal * 0.382)
+trendLine   = ta.ema(close, 20)
+transformationLine = (r1 + pivot) / 2
+
+// ==========================================
+// 2. Function to Draw Labels (دالة الرسم الاحترافي)
+// ==========================================
+f_drawLabel(_price, _text, _color, _textColor) =>
+    var label lbl = na
+    if showLabels
+        label.delete(lbl)
+        lbl := label.new(bar_index + offset, _price, _text + ": " + str.tostring(_price, "#.##"), color=_color, textcolor=_textColor, style=label.style_label_left, size=size.small)
+
+// ==========================================
+// 3. Execution (التنفيذ على الشارت)
+// ==========================================
+if barstate.islast
+    f_drawLabel(r3, "🎯 الهدف السعري 3", color.rgb(255, 82, 82), color.white)
+    f_drawLabel(r2, "🚀 مستهدف صاعد", color.rgb(255, 50, 50), color.white)
+    f_drawLabel(goldTarget1, "✨ المستهدف الذهبي 1", color.rgb(255, 215, 0), color.black)
+    f_drawLabel(r1, "🧱 المقاومة 1", color.rgb(200, 0, 0), color.white)
+    f_drawLabel(transformationLine, "🔄 خط التحول", color.orange, color.black)
+    pivotColor = close > pivot ? color.lime : color.red
+    f_drawLabel(pivot, "⚖️ ميزان السوق (Pivot)", color.rgb(41, 98, 255), color.white)
+    f_drawLabel(s1, "🛡️ مستوى الدعم 1", color.rgb(0, 150, 136), color.white)
+    f_drawLabel(goldTarget2, "🌟 المستهدف الذهبي 2", color.rgb(139, 195, 74), color.black)
+    f_drawLabel(s2, "🛑 وقف الخسارة / الأمان", color.rgb(56, 142, 60), color.white)
+    f_drawLabel(s3, "⚠️ مستوى الانعكاس", color.rgb(27, 94, 32), color.white)
+
+// ==========================================
+// 4. Trend & Volume Logic (الذكاء الاصطناعي للمنظومة)
+// ==========================================
+ema50 = ta.ema(close, 50)
+ema200 = ta.ema(close, 200)
+plot(ema50, color=color.new(color.aqua, 0), title="مسار السيولة")
+plot(ema200, color=color.new(color.purple, 0), title="الاتجاه العام", linewidth=2)
+
+buySignal  = ta.crossover(close, pivot) and close > ema50
+sellSignal = ta.crossunder(close, pivot) and close < ema50
+
+plotshape(buySignal, "دخول سيولة", shape.triangleup, location.belowbar, color.lime, size=size.small, text="دخول")
+plotshape(sellSignal, "خروج سيولة", shape.triangledown, location.abovebar, color.red, size=size.small, text="خروج")
+
+// ==========================================
+// 5. Dashboard Summary (ملخص المنظومة)
+// ==========================================
+var table summary = table.new(position.top_right, 2, 3, border_width=1)
+if barstate.islast
+    table.cell(summary, 0, 0, "حالة السوق:", bgcolor=color.black, text_color=color.white)
+    table.cell(summary, 1, 0, close > pivot ? "إيجابي ⬆" : "سلبي ⬇", bgcolor=close > pivot ? color.green : color.red, text_color=color.white)
+    table.cell(summary, 0, 1, "السيولة:", bgcolor=color.black, text_color=color.white)
+    table.cell(summary, 1, 1, volume > ta.sma(volume, 20) ? "عالية 🔥" : "هادئة ❄️", bgcolor=color.gray, text_color=color.white)
