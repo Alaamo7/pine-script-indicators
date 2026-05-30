@@ -1,0 +1,188 @@
+//@version=6
+indicator("Smart EGX Institutional Suite v5.0 - Legacy Full Reference", overlay=true, max_labels_count=100, max_lines_count=100)
+
+//====================================================
+// Smart EGX Institutional Suite v5.0
+// Status: Legacy Reference
+// Purpose: Preserve the older institutional-style EGX dashboard in a safer, cleaner form.
+//====================================================
+
+//====================
+// SETTINGS
+//====================
+groupMA      = "Moving Averages"
+groupCore    = "Core Filters"
+groupSMC     = "Structure / Liquidity"
+groupObjects = "Object Management"
+groupDash    = "Dashboard"
+
+showMA        = input.bool(true, "Show Moving Averages", group=groupMA)
+showSignals   = input.bool(true, "Show Structure / Trap Signals", group=groupSMC)
+showDashboard = input.bool(true, "Show Dashboard", group=groupDash)
+
+emaFastLen = input.int(13, "EMA 13 / Fast Trend", minval=1, group=groupMA)
+emaBaseLen = input.int(30, "EMA 30 / Short Trend", minval=1, group=groupMA)
+emaMidLen  = input.int(72, "EMA 72 / Mid Trend", minval=1, group=groupMA)
+emaInstLen = input.int(144, "EMA 144 / Institutional Trend", minval=1, group=groupMA)
+
+rsiLen    = input.int(14, "RSI Length", minval=1, group=groupCore)
+adxLen    = input.int(14, "ADX Length", minval=1, group=groupCore)
+adxSmooth = input.int(14, "ADX Smoothing", minval=1, group=groupCore)
+volLen    = input.int(20, "Volume MA Length", minval=1, group=groupCore)
+volMult   = input.float(2.0, "Volume Spike Multiplier", minval=0.1, step=0.1, group=groupCore)
+
+pivotLeft  = input.int(3, "Pivot Left Bars", minval=1, group=groupSMC)
+pivotRight = input.int(3, "Pivot Right Bars", minval=1, group=groupSMC)
+maxLabels  = input.int(60, "Maximum Labels", minval=10, maxval=100, group=groupObjects)
+
+//====================
+// OBJECT MANAGEMENT
+//====================
+var label[] signalLabels = array.new_label()
+
+addLabel(int x, float y, string txt, color bg, color fg, label_style style) =>
+    l = label.new(x=x, y=y, text=txt, color=bg, textcolor=fg, style=style, size=size.tiny)
+    array.push(signalLabels, l)
+    if array.size(signalLabels) > maxLabels
+        old = array.shift(signalLabels)
+        label.delete(old)
+
+//====================
+// MOVING AVERAGES
+//====================
+emaFast = ta.ema(close, emaFastLen)
+emaBase = ta.ema(close, emaBaseLen)
+emaMid  = ta.ema(close, emaMidLen)
+emaInst = ta.ema(close, emaInstLen)
+
+plot(showMA ? emaFast : na, color=color.orange, title="EMA Fast", linewidth=2)
+plot(showMA ? emaBase : na, color=color.blue, title="EMA Base", linewidth=2)
+plot(showMA ? emaMid  : na, color=color.aqua, title="EMA Mid", linewidth=2)
+plot(showMA ? emaInst : na, color=color.red, title="EMA Institutional", linewidth=2)
+
+//====================
+// RSI / ADX / VOLUME
+//====================
+rsi = ta.rsi(close, rsiLen)
+[diPlus, diMinus, adx] = ta.dmi(adxLen, adxSmooth)
+volMA = ta.sma(volume, volLen)
+volumeSpike = not na(volMA) and volume > volMA * volMult
+
+plotshape(volumeSpike, title="Volume Spike", location=location.bottom, color=color.yellow, style=shape.circle, size=size.tiny)
+
+//====================
+// MARKET STRUCTURE
+//====================
+ph = ta.pivothigh(high, pivotLeft, pivotRight)
+pl = ta.pivotlow(low, pivotLeft, pivotRight)
+
+var float lastHigh = na
+var float lastLow = na
+
+if not na(ph)
+    lastHigh := ph
+
+if not na(pl)
+    lastLow := pl
+
+bosUp = not na(lastHigh) and close > lastHigh
+bosDown = not na(lastLow) and close < lastLow
+newBosUp = bosUp and not bosUp[1]
+newBosDown = bosDown and not bosDown[1]
+
+if showSignals and newBosUp
+    addLabel(bar_index, high, "BOS Up", color.green, color.white, label.style_label_down)
+
+if showSignals and newBosDown
+    addLabel(bar_index, low, "BOS Down", color.red, color.white, label.style_label_up)
+
+//====================
+// STOP HUNT
+//====================
+stopHuntHigh = high > high[1] and close < high[1]
+stopHuntLow  = low < low[1] and close > low[1]
+
+if showSignals and stopHuntHigh
+    addLabel(bar_index, high, "Stop Hunt High", color.orange, color.white, label.style_label_down)
+
+if showSignals and stopHuntLow
+    addLabel(bar_index, low, "Stop Hunt Low", color.orange, color.black, label.style_label_up)
+
+//====================
+// ORDER BLOCK - SIMPLIFIED LEGACY LOGIC
+//====================
+bullOB = close[1] < open[1] and close > high[1]
+bearOB = close[1] > open[1] and close < low[1]
+
+if showSignals and bullOB
+    addLabel(bar_index, low, "Bull OB", color.lime, color.black, label.style_label_up)
+
+if showSignals and bearOB
+    addLabel(bar_index, high, "Bear OB", color.maroon, color.white, label.style_label_down)
+
+//====================
+// TREND + SCORE
+//====================
+trend = close > emaFast and close > emaBase ? "Bullish" : close < emaFast and close < emaBase ? "Bearish" : "Sideways"
+
+score = 0
+score += close > emaBase ? 1 : -1
+score += rsi > 50 ? 1 : -1
+score += adx > 25 ? 1 : 0
+score += volumeSpike ? 1 : 0
+score += diPlus > diMinus ? 1 : -1
+
+scoreText = score >= 3 ? "Strong" : score <= -2 ? "Weak / Bearish" : "Neutral"
+
+trendColor = trend == "Bullish" ? color.new(color.green, 0) : trend == "Bearish" ? color.new(color.red, 0) : color.new(color.gray, 0)
+rsiColor = rsi > 70 ? color.red : rsi < 30 ? color.green : color.gray
+adxColor = adx > 25 ? color.green : color.gray
+volColor = volumeSpike ? color.yellow : color.gray
+
+//====================
+// DASHBOARD
+//====================
+var table panel = table.new(position.middle_right, 2, 10, border_width=1)
+
+if showDashboard and barstate.islast
+    table.clear(panel, 0, 0)
+    table.cell(panel, 0, 0, "SMART EGX v5", bgcolor=color.black, text_color=color.white)
+    table.cell(panel, 1, 0, "Legacy Ref", bgcolor=color.black, text_color=color.white)
+
+    table.cell(panel, 0, 1, "Trend")
+    table.cell(panel, 1, 1, trend, bgcolor=trendColor)
+
+    table.cell(panel, 0, 2, "RSI")
+    table.cell(panel, 1, 2, str.tostring(rsi, "#.##"), bgcolor=rsiColor)
+
+    table.cell(panel, 0, 3, "ADX")
+    table.cell(panel, 1, 3, str.tostring(adx, "#.##"), bgcolor=adxColor)
+
+    table.cell(panel, 0, 4, "Volume")
+    table.cell(panel, 1, 4, volumeSpike ? "Spike" : "Normal", bgcolor=volColor)
+
+    table.cell(panel, 0, 5, "Structure")
+    table.cell(panel, 1, 5, newBosUp ? "BOS Up" : newBosDown ? "BOS Down" : "Neutral")
+
+    table.cell(panel, 0, 6, "Stop Hunt")
+    table.cell(panel, 1, 6, stopHuntHigh or stopHuntLow ? "Detected" : "No")
+
+    table.cell(panel, 0, 7, "Order Block")
+    table.cell(panel, 1, 7, bullOB ? "Bull OB" : bearOB ? "Bear OB" : "No")
+
+    table.cell(panel, 0, 8, "DI Bias")
+    table.cell(panel, 1, 8, diPlus > diMinus ? "+DI" : "-DI")
+
+    table.cell(panel, 0, 9, "Score")
+    table.cell(panel, 1, 9, scoreText)
+
+//====================
+// ALERTS
+//====================
+alertcondition(newBosUp, title="Institutional Suite BOS Up", message="Smart EGX Institutional Suite: BOS Up detected.")
+alertcondition(newBosDown, title="Institutional Suite BOS Down", message="Smart EGX Institutional Suite: BOS Down detected.")
+alertcondition(stopHuntHigh, title="Institutional Suite Stop Hunt High", message="Smart EGX Institutional Suite: Stop Hunt High detected.")
+alertcondition(stopHuntLow, title="Institutional Suite Stop Hunt Low", message="Smart EGX Institutional Suite: Stop Hunt Low detected.")
+alertcondition(bullOB, title="Institutional Suite Bull OB", message="Smart EGX Institutional Suite: Bullish OB condition detected.")
+alertcondition(bearOB, title="Institutional Suite Bear OB", message="Smart EGX Institutional Suite: Bearish OB condition detected.")
+alertcondition(volumeSpike, title="Institutional Suite Volume Spike", message="Smart EGX Institutional Suite: Volume Spike detected.")
