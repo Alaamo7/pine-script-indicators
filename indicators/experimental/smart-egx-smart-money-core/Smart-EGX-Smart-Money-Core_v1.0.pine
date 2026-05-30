@@ -1,0 +1,137 @@
+//@version=6
+indicator("Smart EGX Smart Money Core v1.0", overlay=true, max_labels_count=100)
+
+//====================================================
+// Smart EGX Smart Money Core v1.0
+// Status: Experimental
+// Purpose: Lightweight smart-money structure helper for BOS, sweeps, traps, and volume spikes.
+//====================================================
+
+//=============================
+// SETTINGS
+//=============================
+groupSignals = "Smart Money Signals"
+groupRisk    = "Object Management"
+groupVolume  = "Volume Settings"
+
+showStructure = input.bool(true, "Show Market Structure", group=groupSignals)
+showSweeps    = input.bool(true, "Show Liquidity Sweeps", group=groupSignals)
+showTraps     = input.bool(true, "Show Traps", group=groupSignals)
+showVolume    = input.bool(true, "Show Volume Spikes", group=groupSignals)
+showDashboard = input.bool(true, "Show Dashboard", group=groupSignals)
+
+pivotLeft  = input.int(3, "Pivot Left Bars", minval=1, group=groupSignals)
+pivotRight = input.int(3, "Pivot Right Bars", minval=1, group=groupSignals)
+
+volumeLen  = input.int(20, "Volume MA Length", minval=1, group=groupVolume)
+volumeMult = input.float(2.0, "Volume Spike Multiplier", minval=0.1, step=0.1, group=groupVolume)
+
+maxSignalLabels = input.int(50, "Maximum Signal Labels", minval=10, maxval=100, group=groupRisk)
+
+//=============================
+// LABEL MANAGEMENT
+//=============================
+var label[] signalLabels = array.new_label()
+
+addSignalLabel(int x, float y, string txt, color bg, color fg, label_style style) =>
+    newLabel = label.new(x=x, y=y, text=txt, color=bg, textcolor=fg, style=style, size=size.tiny)
+    array.push(signalLabels, newLabel)
+    if array.size(signalLabels) > maxSignalLabels
+        oldLabel = array.shift(signalLabels)
+        label.delete(oldLabel)
+
+//=============================
+// MARKET STRUCTURE
+//=============================
+pivotHigh = ta.pivothigh(high, pivotLeft, pivotRight)
+pivotLow  = ta.pivotlow(low, pivotLeft, pivotRight)
+
+var float lastHigh = na
+var float lastLow  = na
+
+if not na(pivotHigh)
+    lastHigh := pivotHigh
+
+if not na(pivotLow)
+    lastLow := pivotLow
+
+bosUp = not na(lastHigh) and close > lastHigh
+bosDown = not na(lastLow) and close < lastLow
+
+// Prevent repeated BOS spam while price remains beyond same level.
+newBosUp = bosUp and not bosUp[1]
+newBosDown = bosDown and not bosDown[1]
+
+if showStructure and newBosUp
+    addSignalLabel(bar_index, high, "BOS ↑", color.green, color.white, label.style_label_down)
+
+if showStructure and newBosDown
+    addSignalLabel(bar_index, low, "BOS ↓", color.red, color.white, label.style_label_up)
+
+//=============================
+// LIQUIDITY SWEEPS
+//=============================
+sweepHigh = high > high[1] and close < high[1]
+sweepLow  = low < low[1] and close > low[1]
+
+if showSweeps and sweepHigh
+    addSignalLabel(bar_index, high, "Sweep High", color.orange, color.white, label.style_label_down)
+
+if showSweeps and sweepLow
+    addSignalLabel(bar_index, low, "Sweep Low", color.aqua, color.black, label.style_label_up)
+
+//=============================
+// TRAP DETECTOR
+//=============================
+bullTrap = close < open and low < low[1] and close > low[1]
+bearTrap = close > open and high > high[1] and close < high[1]
+
+if showTraps and bullTrap
+    addSignalLabel(bar_index, low, "Bull Trap", color.new(color.green, 0), color.white, label.style_label_up)
+
+if showTraps and bearTrap
+    addSignalLabel(bar_index, high, "Bear Trap", color.new(color.red, 0), color.white, label.style_label_down)
+
+//=============================
+// VOLUME CONFIRMATION
+//=============================
+volMA = ta.sma(volume, volumeLen)
+volSpike = not na(volMA) and volume > volMA * volumeMult
+
+if showVolume and volSpike
+    addSignalLabel(bar_index, high, "Vol Spike", color.yellow, color.black, label.style_label_down)
+
+//=============================
+// DASHBOARD
+//=============================
+stateText = newBosUp ? "BOS Up" : newBosDown ? "BOS Down" : sweepHigh ? "Sweep High" : sweepLow ? "Sweep Low" : bullTrap ? "Bull Trap" : bearTrap ? "Bear Trap" : "Neutral"
+
+var table dash = table.new(position.top_right, 2, 5, border_width=1)
+
+if showDashboard and barstate.islast
+    table.clear(dash, 0, 0)
+    table.cell(dash, 0, 0, "Smart Money Core", text_color=color.white, bgcolor=color.new(color.purple, 0))
+    table.cell(dash, 1, 0, "Experimental", text_color=color.white, bgcolor=color.new(color.purple, 0))
+
+    table.cell(dash, 0, 1, "State")
+    table.cell(dash, 1, 1, stateText)
+
+    table.cell(dash, 0, 2, "Last High")
+    table.cell(dash, 1, 2, not na(lastHigh) ? str.tostring(lastHigh, "#.##") : "N/A")
+
+    table.cell(dash, 0, 3, "Last Low")
+    table.cell(dash, 1, 3, not na(lastLow) ? str.tostring(lastLow, "#.##") : "N/A")
+
+    table.cell(dash, 0, 4, "Volume")
+    table.cell(dash, 1, 4, volSpike ? "Spike" : "Normal")
+
+//=============================
+// ALERTS
+//=============================
+alertcondition(newBosUp, title="Smart Money BOS Up", message="Smart EGX Smart Money Core: Break of structure upward detected.")
+alertcondition(newBosDown, title="Smart Money BOS Down", message="Smart EGX Smart Money Core: Break of structure downward detected.")
+alertcondition(sweepHigh, title="Liquidity Sweep High", message="Smart EGX Smart Money Core: liquidity sweep above previous high detected.")
+alertcondition(sweepLow, title="Liquidity Sweep Low", message="Smart EGX Smart Money Core: liquidity sweep below previous low detected.")
+alertcondition(bullTrap, title="Bull Trap", message="Smart EGX Smart Money Core: bull trap detected.")
+alertcondition(bearTrap, title="Bear Trap", message="Smart EGX Smart Money Core: bear trap detected.")
+alertcondition(volSpike, title="Volume Spike", message="Smart EGX Smart Money Core: volume spike detected.")
