@@ -1,0 +1,12 @@
+//@version=6
+indicator("MM Trap Pro", overlay=true, max_labels_count=100)
+
+//====================================================
+// 1) Core Settings
+//====================================================
+groupCore   = "Core Settings"
+groupVis    = "Visual Settings"
+groupLegend = "Legend / Dashboard"
+
+length         = input.int(20, "Volume Length", minval=1, group=groupCore)
+mult           = input.float(2.0, "Volume Multiplier", minval=0.1, step
