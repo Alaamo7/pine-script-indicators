@@ -1,0 +1,228 @@
+//@version=6
+indicator("Expert EGX Analyst Pro v5.0", overlay=true, max_labels_count=100, max_lines_count=100, max_boxes_count=50)
+
+//====================================================
+// Expert EGX Analyst Pro v5.0
+// Status: Experimental
+// Purpose: Combined EGX trend, momentum, structure, liquidity, FVG, and dashboard helper.
+//====================================================
+
+//====================
+// SETTINGS
+//====================
+groupCore   = "Core"
+groupMA     = "Moving Averages"
+groupSMC    = "Smart Money"
+groupRisk   = "Object Management"
+groupAlerts = "Alerts"
+
+showMA        = input.bool(true, "Show Moving Averages", group=groupMA)
+showSignals   = input.bool(true, "Show Signals", group=groupCore)
+showDashboard = input.bool(true, "Show Dashboard", group=groupCore)
+showLiquidity = input.bool(true, "Show Liquidity Lines", group=groupSMC)
+showFVG       = input.bool(true, "Show FVG Zones", group=groupSMC)
+showOB        = input.bool(true, "Show Order Block Labels", group=groupSMC)
+
+emaFastLen = input.int(13, "EMA Fast", minval=1, group=groupMA)
+emaBaseLen = input.int(30, "EMA Base", minval=1, group=groupMA)
+emaMidLen  = input.int(72, "EMA Mid", minval=1, group=groupMA)
+emaInstLen = input.int(144, "EMA Institutional", minval=1, group=groupMA)
+
+rsiLen    = input.int(14, "RSI Length", minval=1, group=groupCore)
+adxLen    = input.int(14, "ADX Length", minval=1, group=groupCore)
+adxSmooth = input.int(14, "ADX Smoothing", minval=1, group=groupCore)
+volLen    = input.int(20, "Volume MA Length", minval=1, group=groupCore)
+volMult   = input.float(2.0, "Volume Spike Multiplier", minval=0.1, step=0.1, group=groupCore)
+
+pivotLeft  = input.int(3, "Pivot Left Bars", minval=1, group=groupSMC)
+pivotRight = input.int(3, "Pivot Right Bars", minval=1, group=groupSMC)
+fvgMinPct  = input.float(0.15, "Minimum FVG Size %", minval=0.0, step=0.05, group=groupSMC)
+liquidityExtension = input.int(30, "Liquidity Line Extension", minval=5, maxval=200, group=groupSMC)
+
+maxLabels = input.int(60, "Maximum Labels", minval=10, maxval=100, group=groupRisk)
+maxLines  = input.int(40, "Maximum Lines", minval=10, maxval=100, group=groupRisk)
+maxBoxes  = input.int(25, "Maximum Boxes", minval=5, maxval=50, group=groupRisk)
+
+//====================
+// OBJECT MANAGEMENT
+//====================
+var label[] labels = array.new_label()
+var line[]  lines  = array.new_line()
+var box[]   boxes  = array.new_box()
+
+addLabel(int x, float y, string txt, color bg, color fg, label_style style) =>
+    l = label.new(x=x, y=y, text=txt, color=bg, textcolor=fg, style=style, size=size.tiny)
+    array.push(labels, l)
+    if array.size(labels) > maxLabels
+        old = array.shift(labels)
+        label.delete(old)
+
+addLine(int x1, float y1, int x2, float y2, color col) =>
+    ln = line.new(x1=x1, y1=y1, x2=x2, y2=y2, color=col, width=1)
+    array.push(lines, ln)
+    if array.size(lines) > maxLines
+        old = array.shift(lines)
+        line.delete(old)
+
+addBox(int left, float top, int right, float bottom, color bg, color border) =>
+    bx = box.new(left=left, top=top, right=right, bottom=bottom, bgcolor=bg, border_color=border)
+    array.push(boxes, bx)
+    if array.size(boxes) > maxBoxes
+        old = array.shift(boxes)
+        box.delete(old)
+
+//====================
+// TREND ENGINE
+//====================
+emaFast = ta.ema(close, emaFastLen)
+emaBase = ta.ema(close, emaBaseLen)
+emaMid  = ta.ema(close, emaMidLen)
+emaInst = ta.ema(close, emaInstLen)
+
+plot(showMA ? emaFast : na, "EMA Fast", color=color.orange)
+plot(showMA ? emaBase : na, "EMA Base", color=color.blue)
+plot(showMA ? emaMid  : na, "EMA Mid", color=color.aqua)
+plot(showMA ? emaInst : na, "EMA Institutional", color=color.fuchsia)
+
+vwapValue = ta.vwap(hlc3)
+plot(showMA ? vwapValue : na, "VWAP", color=color.yellow)
+
+//====================
+// MOMENTUM
+//====================
+rsi = ta.rsi(close, rsiLen)
+[plusDI, minusDI, adx] = ta.dmi(adxLen, adxSmooth)
+
+//====================
+// MARKET STRUCTURE
+//====================
+ph = ta.pivothigh(high, pivotLeft, pivotRight)
+pl = ta.pivotlow(low, pivotLeft, pivotRight)
+
+var float lastHigh = na
+var float lastLow = na
+
+if not na(ph)
+    lastHigh := ph
+    if showLiquidity
+        addLine(bar_index - pivotRight, ph, bar_index - pivotRight + liquidityExtension, ph, color.red)
+
+if not na(pl)
+    lastLow := pl
+    if showLiquidity
+        addLine(bar_index - pivotRight, pl, bar_index - pivotRight + liquidityExtension, pl, color.green)
+
+bosUp = not na(lastHigh) and close > lastHigh
+bosDown = not na(lastLow) and close < lastLow
+newBosUp = bosUp and not bosUp[1]
+newBosDown = bosDown and not bosDown[1]
+
+if showSignals and newBosUp
+    addLabel(bar_index, high, "BOS ↑", color.green, color.white, label.style_label_down)
+
+if showSignals and newBosDown
+    addLabel(bar_index, low, "BOS ↓", color.red, color.white, label.style_label_up)
+
+//====================
+// FVG DETECTOR
+//====================
+bullFVG = low[1] > high[2]
+bearFVG = high[1] < low[2]
+
+bullFVGSizePct = bullFVG ? ((low[1] - high[2]) / close) * 100 : 0.0
+bearFVGSizePct = bearFVG ? ((low[2] - high[1]) / close) * 100 : 0.0
+
+validBullFVG = showFVG and bullFVG and bullFVGSizePct >= fvgMinPct
+validBearFVG = showFVG and bearFVG and bearFVGSizePct >= fvgMinPct
+
+if validBullFVG
+    addBox(bar_index - 2, low[1], bar_index, high[2], color.new(color.green, 82), color.new(color.green, 20))
+
+if validBearFVG
+    addBox(bar_index - 2, low[2], bar_index, high[1], color.new(color.red, 82), color.new(color.red, 20))
+
+//====================
+// ORDER BLOCK / STOP HUNT
+//====================
+bullOB = close > open and close[1] < open[1] and close > high[1]
+bearOB = close < open and close[1] > open[1] and close < low[1]
+
+if showOB and bullOB
+    addLabel(bar_index, low, "Bull OB", color.lime, color.black, label.style_label_up)
+
+if showOB and bearOB
+    addLabel(bar_index, high, "Bear OB", color.maroon, color.white, label.style_label_down)
+
+stopHuntHigh = high > high[1] and close < high[1]
+stopHuntLow  = low < low[1] and close > low[1]
+
+if showSignals and stopHuntHigh
+    addLabel(bar_index, high, "Stop Hunt ↑", color.orange, color.white, label.style_label_down)
+
+if showSignals and stopHuntLow
+    addLabel(bar_index, low, "Stop Hunt ↓", color.orange, color.black, label.style_label_up)
+
+//====================
+// VOLUME + MTF
+//====================
+volMA = ta.sma(volume, volLen)
+volSpike = not na(volMA) and volume > volMA * volMult
+
+htfClose = request.security(syminfo.tickerid, "D", close, barmerge.gaps_off, barmerge.lookahead_off)
+htfEma   = request.security(syminfo.tickerid, "D", ta.ema(close, 50), barmerge.gaps_off, barmerge.lookahead_off)
+trendHTF = not na(htfClose) and not na(htfEma) ? htfClose > htfEma ? "Bull" : "Bear" : "N/A"
+
+//====================
+// SCORE
+//====================
+score = 0
+score += close > emaBase ? 1 : -1
+score += rsi > 50 ? 1 : -1
+score += adx > 25 ? 1 : 0
+score += volSpike ? 1 : 0
+score += close > vwapValue ? 1 : -1
+
+scoreText = score >= 3 ? "Strong Bull" : score <= -2 ? "Strong Bear" : "Neutral"
+trendText = close > emaFast and close > emaBase ? "Bullish" : close < emaFast and close < emaBase ? "Bearish" : "Sideways"
+
+//====================
+// DASHBOARD
+//====================
+var table panel = table.new(position.top_right, 2, 8, border_width=1)
+
+if showDashboard and barstate.islast
+    table.clear(panel, 0, 0)
+    table.cell(panel, 0, 0, "Expert EGX v5", bgcolor=color.black, text_color=color.white)
+    table.cell(panel, 1, 0, "Experimental", bgcolor=color.black, text_color=color.white)
+
+    table.cell(panel, 0, 1, "Trend")
+    table.cell(panel, 1, 1, trendText)
+
+    table.cell(panel, 0, 2, "Daily Bias")
+    table.cell(panel, 1, 2, trendHTF)
+
+    table.cell(panel, 0, 3, "RSI")
+    table.cell(panel, 1, 3, str.tostring(rsi, "#.##"))
+
+    table.cell(panel, 0, 4, "ADX")
+    table.cell(panel, 1, 4, str.tostring(adx, "#.##"))
+
+    table.cell(panel, 0, 5, "Volume")
+    table.cell(panel, 1, 5, volSpike ? "Spike" : "Normal")
+
+    table.cell(panel, 0, 6, "Structure")
+    table.cell(panel, 1, 6, newBosUp ? "BOS Up" : newBosDown ? "BOS Down" : "Neutral")
+
+    table.cell(panel, 0, 7, "Score")
+    table.cell(panel, 1, 7, scoreText)
+
+//====================
+// ALERTS
+//====================
+alertcondition(newBosUp, title="Expert EGX BOS Up", message="Expert EGX Analyst Pro: BOS Up detected.")
+alertcondition(newBosDown, title="Expert EGX BOS Down", message="Expert EGX Analyst Pro: BOS Down detected.")
+alertcondition(validBullFVG, title="Expert EGX Bullish FVG", message="Expert EGX Analyst Pro: valid bullish FVG detected.")
+alertcondition(validBearFVG, title="Expert EGX Bearish FVG", message="Expert EGX Analyst Pro: valid bearish FVG detected.")
+alertcondition(bullOB, title="Expert EGX Bullish OB", message="Expert EGX Analyst Pro: bullish order block condition detected.")
+alertcondition(bearOB, title="Expert EGX Bearish OB", message="Expert EGX Analyst Pro: bearish order block condition detected.")
+alertcondition(volSpike, title="Expert EGX Volume Spike", message="Expert EGX Analyst Pro: volume spike detected.")
