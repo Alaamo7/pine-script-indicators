@@ -1,0 +1,128 @@
+//@version=6
+indicator("Smart EGX Trend Engine v1.0", overlay=true)
+
+//====================================================
+// Smart EGX Trend Engine v1.0
+// Status: Beta
+// Purpose: Trend, momentum, and multi-timeframe bias dashboard for EGX-style analysis.
+//====================================================
+
+//=========================
+// SETTINGS
+//=========================
+groupCore = "Core Settings"
+groupMA   = "Moving Averages"
+groupMTF  = "Multi-Timeframe"
+
+showMA        = input.bool(true, "Show Moving Averages", group=groupMA)
+showVWAP      = input.bool(true, "Show VWAP", group=groupMA)
+showDashboard = input.bool(true, "Show Dashboard", group=groupCore)
+
+emaFastLen = input.int(13, "Fast EMA", minval=1, group=groupMA)
+emaBaseLen = input.int(30, "Base EMA", minval=1, group=groupMA)
+emaMidLen  = input.int(72, "Mid EMA", minval=1, group=groupMA)
+emaInstLen = input.int(144, "Institutional EMA", minval=1, group=groupMA)
+emaLongLen = input.int(288, "Long EMA", minval=1, group=groupMA)
+
+rsiLen      = input.int(14, "RSI Length", minval=1, group=groupCore)
+adxLen      = input.int(14, "ADX Length", minval=1, group=groupCore)
+adxSmooth   = input.int(14, "ADX Smoothing", minval=1, group=groupCore)
+adxStrength = input.float(25.0, "ADX Strength Threshold", minval=1.0, step=0.5, group=groupCore)
+
+mtfEmaLen = input.int(50, "MTF EMA Length", minval=1, group=groupMTF)
+tf1 = input.timeframe("15", "Timeframe 1", group=groupMTF)
+tf2 = input.timeframe("60", "Timeframe 2", group=groupMTF)
+tf3 = input.timeframe("D", "Timeframe 3", group=groupMTF)
+
+//=========================
+// MOVING AVERAGES
+//=========================
+emaFast = ta.ema(close, emaFastLen)
+emaBase = ta.ema(close, emaBaseLen)
+emaMid  = ta.ema(close, emaMidLen)
+emaInst = ta.ema(close, emaInstLen)
+emaLong = ta.ema(close, emaLongLen)
+
+plot(showMA ? emaFast : na, "EMA Fast", color=color.orange)
+plot(showMA ? emaBase : na, "EMA Base", color=color.blue)
+plot(showMA ? emaMid  : na, "EMA Mid", color=color.aqua)
+plot(showMA ? emaInst : na, "EMA Institutional", color=color.fuchsia)
+plot(showMA ? emaLong : na, "EMA Long", color=color.gray)
+
+vwapValue = ta.vwap(hlc3)
+plot(showVWAP ? vwapValue : na, "VWAP", color=color.yellow)
+
+//=========================
+// MOMENTUM
+//=========================
+rsi = ta.rsi(close, rsiLen)
+[plusDI, minusDI, adx] = ta.dmi(adxLen, adxSmooth)
+
+//=========================
+// TREND STATE
+//=========================
+trend = close > emaFast and close > emaBase ? "Bullish" : close < emaFast and close < emaBase ? "Bearish" : "Sideways"
+
+//=========================
+// MULTI-TIMEFRAME TREND
+// Correct method: calculate close and EMA inside request.security.
+//=========================
+getBias(tf, len) =>
+    tfClose = request.security(syminfo.tickerid, tf, close, barmerge.gaps_off, barmerge.lookahead_off)
+    tfEma   = request.security(syminfo.tickerid, tf, ta.ema(close, len), barmerge.gaps_off, barmerge.lookahead_off)
+    not na(tfClose) and not na(tfEma) ? tfClose > tfEma ? "Bull" : "Bear" : "N/A"
+
+mtf1 = getBias(tf1, mtfEmaLen)
+mtf2 = getBias(tf2, mtfEmaLen)
+mtf3 = getBias(tf3, mtfEmaLen)
+
+//=========================
+// TREND SCORE
+//=========================
+score = 0
+score += close > emaBase ? 1 : -1
+score += rsi > 50 ? 1 : -1
+score += adx > adxStrength ? 1 : 0
+score += close > vwapValue ? 1 : -1
+
+trendScore = score >= 3 ? "Strong Bull" : score <= -2 ? "Strong Bear" : "Neutral"
+
+//=========================
+// DASHBOARD
+//=========================
+var table dash = table.new(position.top_right, 2, 8, border_width=1)
+
+if showDashboard and barstate.islast
+    table.clear(dash, 0, 0)
+    table.cell(dash, 0, 0, "Smart EGX Trend", text_color=color.white, bgcolor=color.new(color.blue, 0))
+    table.cell(dash, 1, 0, "v1.0 Beta", text_color=color.white, bgcolor=color.new(color.blue, 0))
+
+    table.cell(dash, 0, 1, "Trend")
+    table.cell(dash, 1, 1, trend)
+
+    table.cell(dash, 0, 2, "Trend Score")
+    table.cell(dash, 1, 2, trendScore)
+
+    table.cell(dash, 0, 3, "RSI")
+    table.cell(dash, 1, 3, str.tostring(rsi, "#.##"))
+
+    table.cell(dash, 0, 4, "ADX")
+    table.cell(dash, 1, 4, str.tostring(adx, "#.##"))
+
+    table.cell(dash, 0, 5, tf1 + " Bias")
+    table.cell(dash, 1, 5, mtf1)
+
+    table.cell(dash, 0, 6, tf2 + " Bias")
+    table.cell(dash, 1, 6, mtf2)
+
+    table.cell(dash, 0, 7, tf3 + " Bias")
+    table.cell(dash, 1, 7, mtf3)
+
+//=========================
+// ALERTS
+//=========================
+bullishShift = ta.crossover(close, emaBase) and rsi > 50
+bearishShift = ta.crossunder(close, emaBase) and rsi < 50
+
+alertcondition(bullishShift, title="Smart EGX Trend Bullish Shift", message="Smart EGX Trend Engine: Bullish trend shift detected.")
+alertcondition(bearishShift, title="Smart EGX Trend Bearish Shift", message="Smart EGX Trend Engine: Bearish trend shift detected.")
