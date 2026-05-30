@@ -24,17 +24,17 @@ This index lists the Pine Script assets currently organized in this repository.
 |---|---|---|---|
 | Scalping EMA+RSI Strategy v1.0 | Scalping / Backtest | Long Only | `strategies/backtest/scalping-ema-rsi-strategy/Scalping-EMA-RSI-Strategy_v1.0.pine` |
 
-## Legacy Archive
+## Legacy / Archive
 
 | Script | Category | Status | Path |
 |---|---|---|---|
 | Smart EGX Institutional Suite v5.0 | Archive / Legacy | Legacy Reference | `archive/legacy/smart-egx-institutional-suite/Smart-EGX-Institutional-Suite_v5.0_Legacy-Full-Reference.pine` |
+| Smart Market Behavior Pro – v6 Ultimate Clean | Archive / Broken or Test | Incomplete / Broken | `archive/broken-or-test/smart-market-behavior-pro/Smart-Market-Behavior-Pro_v6_Ultimate-Clean_INCOMPLETE.pine` |
 
 ## Needs Cleanup / Triage
 
 | Script | Current Location | Issue | Suggested Action |
 |---|---|---|---|
-| Smart Market Behavior Pro – v6 Ultimate Clean | Repository root | No `.pine` extension and likely incomplete variable declarations | Move to `archive/broken-or-test/` or replace with complete working version |
 | MM Trap Pro Compact | `indicators/mm-trap-pro/mm-trap-pro.pine` | Compact unversioned path, minimal inputs, no README, overlaps with planned MM Trap Pro migration | Consolidate with full MM Trap Pro from old PR #3 or archive compact version |
 
 ## Status Definitions
@@ -43,6 +43,7 @@ This index lists the Pine Script assets currently organized in this repository.
 - **Experimental:** research/prototype logic that should be visually validated before relying on it.
 - **Long Only:** strategy behavior designed around long entries and exits, suitable for EGX-style retail backtesting assumptions.
 - **Legacy Reference:** preserved for study and historical reference, not the preferred production script.
+- **Incomplete / Broken:** preserved only to avoid losing submitted source, but should not be treated as working production code.
 
 ## Notes
 

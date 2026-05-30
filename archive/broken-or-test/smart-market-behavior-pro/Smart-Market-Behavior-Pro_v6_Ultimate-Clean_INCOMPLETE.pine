@@ -1,6 +1,11 @@
 //@version=6
 indicator("Smart Market Behavior Pro – v6 Ultimate Clean", overlay=true)
 
+// ARCHIVE NOTE:
+// This file was moved from the repository root because it appears incomplete.
+// Several variables are assigned with := without visible declarations in this submitted fragment.
+// Keep it under archive/broken-or-test until a complete compiling source is available.
+
 // === استرجاع كود الإعدادات (Decode)
 settings_input = input.string("", title="استرجاع كود الإعدادات (20 خانة فقط من 0 و1)")
 
