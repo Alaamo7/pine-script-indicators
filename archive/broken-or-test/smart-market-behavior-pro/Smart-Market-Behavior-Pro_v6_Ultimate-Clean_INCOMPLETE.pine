@@ -1,0 +1,66 @@
+//@version=6
+indicator("Smart Market Behavior Pro – v6 Ultimate Clean", overlay=true)
+
+// ARCHIVE NOTE:
+// This file was moved from the repository root because it appears incomplete.
+// Several variables are assigned with := without visible declarations in this submitted fragment.
+// Keep it under archive/broken-or-test until a complete compiling source is available.
+
+// === استرجاع كود الإعدادات (Decode)
+settings_input = input.string("", title="استرجاع كود الإعدادات (20 خانة فقط من 0 و1)")
+
+f_apply_setting(index) =>
+    str.length(settings_input) > index and str.substr(settings_input, index, 1) == "1"
+
+master_toggle            := f_apply_setting(0)
+show_controls            := f_apply_setting(1)
+show_stats_input         := f_apply_setting(2)
+stats_toggle             := f_apply_setting(3)
+show_vwap_input          := f_apply_setting(4)
+vwap_toggle              := f_apply_setting(5)
+show_obv_ad_input        := f_apply_setting(6)
+obv_toggle               := f_apply_setting(7)
+show_signals_input       := f_apply_setting(8)
+signal_toggle            := f_apply_setting(9)
+show_candles_input       := f_apply_setting(10)
+candle_toggle            := f_apply_setting(11)
+show_divergence_input    := f_apply_setting(12)
+div_toggle               := f_apply_setting(13)
+show_pivots_input        := f_apply_setting(14)
+pivot_toggle             := f_apply_setting(15)
+show_zones_input         := f_apply_setting(16)
+zones_toggle             := f_apply_setting(17)
+show_sentiment_input     := f_apply_setting(18)
+sentiment_toggle         := f_apply_setting(19)
+
+// === توليد كود الإعدادات (سطر واحد)
+settings_code = (master_toggle ? "1" : "0") +
+    (show_controls ? "1" : "0") +
+    (show_stats_input ? "1" : "0") +
+    (stats_toggle ? "1" : "0") +
+    (show_vwap_input ? "1" : "0") +
+    (vwap_toggle ? "1" : "0") +
+    (show_obv_ad_input ? "1" : "0") +
+    (obv_toggle ? "1" : "0") +
+    (show_signals_input ? "1" : "0") +
+    (signal_toggle ? "1" : "0") +
+    (show_candles_input ? "1" : "0") +
+    (candle_toggle ? "1" : "0") +
+    (show_divergence_input ? "1" : "0") +
+    (div_toggle ? "1" : "0") +
+    (show_pivots_input ? "1" : "0") +
+    (pivot_toggle ? "1" : "0") +
+    (show_zones_input ? "1" : "0") +
+    (zones_toggle ? "1" : "0") +
+    (show_sentiment_input ? "1" : "0") +
+    (sentiment_toggle ? "1" : "0")
+
+// === تنبيه عند تغيير الإعدادات
+show_code_alert = input.bool(false, title="عرض الكود في اللوج عند تغييره")
+var string last_settings_code = ""
+settings_changed = settings_code != last_settings_code
+
+if settings_changed and show_code_alert
+    label.new(bar_index, na(high) ? close : high, text="كود الإعدادات: " + settings_code, style=label.style_label_up, color=color.yellow, textcolor=color.black)
+    alert("تم تغيير كود الإعدادات: " + settings_code, alert.freq_once_per_bar)
+    last_settings_code := settings_code
