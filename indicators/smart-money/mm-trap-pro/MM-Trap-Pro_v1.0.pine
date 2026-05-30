@@ -1,0 +1,78 @@
+//@version=6
+indicator("MM Trap Pro v1.0", overlay=true, max_labels_count=100)
+
+//====================================================
+// MM Trap Pro v1.0
+// Status: Active Beta
+// Purpose: Detect simplified market-maker trap candles using volume, candle body, and previous-bar reference logic.
+//====================================================
+
+//====================
+// SETTINGS
+//====================
+groupCore = "Core Settings"
+groupVis  = "Visual Settings"
+
+volumeLength   = input.int(20, "Volume Length", minval=1, group=groupCore)
+volumeMult     = input.float(2.0, "Volume Multiplier", minval=0.1, step=0.1, group=groupCore)
+minBodyPercent = input.float(0.5, "Minimum Body %", minval=0.0, step=0.1, group=groupCore)
+
+showSignals = input.bool(true, "Show Trap Labels", group=groupVis)
+showBg      = input.bool(true, "Show Background Highlight", group=groupVis)
+showDash    = input.bool(true, "Show Dashboard", group=groupVis)
+mobileMode  = input.bool(true, "Mobile Friendly Labels", group=groupVis)
+
+//====================
+// CALCULATIONS
+//====================
+avgVolume = ta.sma(volume, volumeLength)
+highVolume = not na(avgVolume) and volume > avgVolume * volumeMult
+
+bodySize = math.abs(close - open)
+bodyPercent = open != 0 ? (bodySize / open) * 100 : 0.0
+validBody = bodyPercent > minBodyPercent
+
+// Simplified trap definitions preserved from compact version, with clearer naming.
+bearTrap = close > open and highVolume and close < high[1] and validBody
+bullTrap = close < open and highVolume and close > low[1] and validBody
+
+//====================
+// VISUALS
+//====================
+bearColor = color.rgb(220, 60, 60)
+bullColor = color.rgb(0, 190, 110)
+
+labelSize = mobileMode ? size.tiny : size.small
+
+plotshape(showSignals and bearTrap, title="Bear Trap", style=shape.labeldown, location=location.abovebar, text="SELL\nTRAP", color=bearColor, textcolor=color.white, size=labelSize)
+plotshape(showSignals and bullTrap, title="Bull Trap", style=shape.labelup, location=location.belowbar, text="BUY\nTRAP", color=bullColor, textcolor=color.black, size=labelSize)
+
+bgcolor(showBg and bearTrap ? color.new(bearColor, 86) : showBg and bullTrap ? color.new(bullColor, 86) : na)
+
+//====================
+// DASHBOARD
+//====================
+stateText = bearTrap ? "Bear Trap" : bullTrap ? "Bull Trap" : "No Trap"
+volumeText = highVolume ? "High Volume" : "Normal Volume"
+bodyText = validBody ? "Valid Body" : "Weak Body"
+
+var table dash = table.new(position.top_right, 2, 5, border_width=1)
+
+if showDash and barstate.islast
+    table.clear(dash, 0, 0)
+    table.cell(dash, 0, 0, "MM Trap Pro", bgcolor=color.black, text_color=color.white)
+    table.cell(dash, 1, 0, "v1.0", bgcolor=color.black, text_color=color.white)
+    table.cell(dash, 0, 1, "State")
+    table.cell(dash, 1, 1, stateText)
+    table.cell(dash, 0, 2, "Volume")
+    table.cell(dash, 1, 2, volumeText)
+    table.cell(dash, 0, 3, "Body %")
+    table.cell(dash, 1, 3, str.tostring(bodyPercent, "#.##") + "%")
+    table.cell(dash, 0, 4, "Body Filter")
+    table.cell(dash, 1, 4, bodyText)
+
+//====================
+// ALERTS
+//====================
+alertcondition(bearTrap, title="MM Trap Pro Bear Trap", message="MM Trap Pro: Bear trap detected on {{ticker}} at {{close}}.")
+alertcondition(bullTrap, title="MM Trap Pro Bull Trap", message="MM Trap Pro: Bull trap detected on {{ticker}} at {{close}}.")
