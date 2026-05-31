@@ -10,6 +10,7 @@ This index lists the Pine Script assets currently organized in this repository.
 | AboSamra Pro v1.1 | Trend / Momentum / Manual S&R | Active Beta | `indicators/trend/AboSamra-Pro/AboSamra-Pro_v1.1.pine` |
 | Smart Correction Signals Pro v1.0 | Momentum / Correction | Beta | `indicators/momentum/smart-correction-signals-pro/Smart-Correction-Signals-Pro_v1.0.pine` |
 | Smart EGX Liquidity S/R Dashboard v0.9 | Smart Money / Structure / Liquidity | Active Beta | `indicators/smart-money/smart-egx-liquidity-sr-dashboard/Smart-EGX-Liquidity-SR-Dashboard_v0.9.pine` |
+| MM Trap Pro v1.0 | Smart Money / Trap Detection | Active Beta | `indicators/smart-money/mm-trap-pro/MM-Trap-Pro_v1.0.pine` |
 
 ## Experimental Indicators
 
@@ -33,9 +34,7 @@ This index lists the Pine Script assets currently organized in this repository.
 
 ## Needs Cleanup / Triage
 
-| Script | Current Location | Issue | Suggested Action |
-|---|---|---|---|
-| MM Trap Pro Compact | `indicators/mm-trap-pro/mm-trap-pro.pine` | Compact unversioned path, minimal inputs, no README, overlaps with planned MM Trap Pro migration | Consolidate with full MM Trap Pro from old PR #3 or archive compact version |
+No active triage items currently listed. Remaining legacy PRs should be reviewed in separate small cleanup batches.
 
 ## Status Definitions
 
