@@ -12,6 +12,9 @@ This index lists the Pine Script assets currently organized in this repository.
 | Smart EGX Liquidity S/R Dashboard v0.9 | Smart Money / Structure / Liquidity | Active Beta | `indicators/smart-money/smart-egx-liquidity-sr-dashboard/Smart-EGX-Liquidity-SR-Dashboard_v0.9.pine` |
 | MM Trap Pro v1.0 | Smart Money / Trap Detection | Active Beta | `indicators/smart-money/mm-trap-pro/MM-Trap-Pro_v1.0.pine` |
 | EGX Smart Balance Matrix Pro v1.0 | Smart Money / Balance Matrix | Active Beta | `indicators/smart-money/egx-smart-balance-matrix-pro/EGX-Smart-Balance-Matrix-Pro_v1.0.pine` |
+| EGX Pro Matrix MTF Filter v1.0 | Scalping / Matrix / MTF | Beta | `indicators/scalping/egx-pro-matrix/variants/EGX-Pro-Matrix-MTF-Filter_v1.0.pine` |
+| EGX Pro Matrix Risk Manager v1.0 | Scalping / Matrix / Risk | Beta | `indicators/scalping/egx-pro-matrix/variants/EGX-Pro-Matrix-Risk-Manager_v1.0.pine` |
+| EGX Pro Price Matrix v1.0 | Trend / Price Matrix | Beta | `indicators/trend/egx-pro-price-matrix/EGX-Pro-Price-Matrix_v1.0.pine` |
 
 ## Experimental Indicators
 
