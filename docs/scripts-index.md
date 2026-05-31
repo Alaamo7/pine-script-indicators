@@ -11,6 +11,7 @@ This index lists the Pine Script assets currently organized in this repository.
 | Smart Correction Signals Pro v1.0 | Momentum / Correction | Beta | `indicators/momentum/smart-correction-signals-pro/Smart-Correction-Signals-Pro_v1.0.pine` |
 | Smart EGX Liquidity S/R Dashboard v0.9 | Smart Money / Structure / Liquidity | Active Beta | `indicators/smart-money/smart-egx-liquidity-sr-dashboard/Smart-EGX-Liquidity-SR-Dashboard_v0.9.pine` |
 | MM Trap Pro v1.0 | Smart Money / Trap Detection | Active Beta | `indicators/smart-money/mm-trap-pro/MM-Trap-Pro_v1.0.pine` |
+| EGX Smart Balance Matrix Pro v1.0 | Smart Money / Balance Matrix | Active Beta | `indicators/smart-money/egx-smart-balance-matrix-pro/EGX-Smart-Balance-Matrix-Pro_v1.0.pine` |
 
 ## Experimental Indicators
 
@@ -24,6 +25,7 @@ This index lists the Pine Script assets currently organized in this repository.
 | Script | Category | Status | Path |
 |---|---|---|---|
 | Scalping EMA+RSI Strategy v1.0 | Scalping / Backtest | Long Only | `strategies/backtest/scalping-ema-rsi-strategy/Scalping-EMA-RSI-Strategy_v1.0.pine` |
+| Reverse SMA+RSI Strategy v1.0 | Reverse Scalping / Backtest | Long Only | `strategies/backtest/reverse-sma-rsi-strategy/Reverse-SMA-RSI-Strategy_v1.0.pine` |
 
 ## Legacy / Archive
 
