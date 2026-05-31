@@ -1,0 +1,96 @@
+//@version=6
+strategy("Reverse SMA+RSI Strategy v1.0 - EGX Long Only", shorttitle="REV_SMA_RSI", overlay=true, initial_capital=10000, default_qty_type=strategy.percent_of_equity, default_qty_value=10)
+
+//====================================================
+// Reverse SMA+RSI Strategy v1.0
+// Status: Backtest / Long Only
+// Purpose: EGX-friendly long-only reverse scalping backtest using SMA 9/21 and RSI extremes.
+//====================================================
+
+//====================
+// SETTINGS
+//====================
+groupSMA = "Moving Average Settings"
+groupRSI = "RSI Settings"
+groupRisk = "Risk Management"
+groupVisual = "Visual Settings"
+
+smaFastLen = input.int(9, "Fast SMA", minval=1, group=groupSMA)
+smaSlowLen = input.int(21, "Slow SMA", minval=1, group=groupSMA)
+
+rsiLen = input.int(14, "RSI Length", minval=1, group=groupRSI)
+rsiOversold = input.int(30, "Oversold Level", minval=1, maxval=50, group=groupRSI)
+rsiOverbought = input.int(70, "Overbought Level", minval=50, maxval=100, group=groupRSI)
+rsiLookback = input.int(5, "RSI Extreme Lookback", minval=1, group=groupRSI)
+
+useATRExit = input.bool(true, "Use ATR Stop/Target", group=groupRisk)
+atrLen = input.int(14, "ATR Length", minval=1, group=groupRisk)
+atrStop = input.float(1.5, "ATR Stop Multiplier", minval=0.1, step=0.1, group=groupRisk)
+atrTarget = input.float(2.0, "ATR Target Multiplier", minval=0.1, step=0.1, group=groupRisk)
+
+showDashboard = input.bool(true, "Show Dashboard", group=groupVisual)
+showSignals = input.bool(true, "Show Signals", group=groupVisual)
+
+//====================
+// CALCULATIONS
+//====================
+smaFast = ta.sma(close, smaFastLen)
+smaSlow = ta.sma(close, smaSlowLen)
+rsiValue = ta.rsi(close, rsiLen)
+atr = ta.atr(atrLen)
+
+plot(smaFast, color=color.aqua, linewidth=2, title="Fast SMA")
+plot(smaSlow, color=color.orange, linewidth=2, title="Slow SMA")
+
+wasOversold = ta.lowest(rsiValue, rsiLookback) <= rsiOversold
+wasOverbought = ta.highest(rsiValue, rsiLookback) >= rsiOverbought
+
+score = 0
+score += ta.crossover(smaFast, smaSlow) ? 2 : 0
+score -= ta.crossunder(smaFast, smaSlow) ? 2 : 0
+score += wasOversold ? 2 : 0
+score -= wasOverbought ? 2 : 0
+
+//====================
+// LONG-ONLY SIGNALS
+//====================
+longCondition = ta.crossover(smaFast, smaSlow) and wasOversold
+exitCondition = ta.crossunder(smaFast, smaSlow) or wasOverbought
+
+if longCondition
+    strategy.entry("Long", strategy.long, comment="Buy: SMA Cross + RSI OS")
+
+if exitCondition
+    strategy.close("Long", comment="Exit: SMA/RSI Weakness")
+
+if useATRExit and strategy.position_size > 0
+    longStop = strategy.position_avg_price - atr * atrStop
+    longTarget = strategy.position_avg_price + atr * atrTarget
+    strategy.exit("ATR TP/SL", "Long", stop=longStop, limit=longTarget)
+
+//====================
+// VISUALS
+//====================
+plotshape(showSignals and longCondition, style=shape.triangleup, location=location.belowbar, color=color.green, size=size.small, title="Buy Signal", text="BUY")
+plotshape(showSignals and exitCondition, style=shape.triangledown, location=location.abovebar, color=color.red, size=size.small, title="Exit Signal", text="EXIT")
+
+var table dash = table.new(position.top_right, 2, 5, border_width=1, border_color=color.gray)
+
+if showDashboard and barstate.islast
+    table.clear(dash, 0, 0)
+    table.cell(dash, 0, 0, "Reverse SMA+RSI", bgcolor=color.black, text_color=color.white)
+    table.cell(dash, 1, 0, "Long Only", bgcolor=color.black, text_color=color.white)
+    table.cell(dash, 0, 1, "Trend")
+    table.cell(dash, 1, 1, smaFast > smaSlow ? "Bullish" : "Bearish", bgcolor=smaFast > smaSlow ? color.green : color.red)
+    table.cell(dash, 0, 2, "RSI")
+    table.cell(dash, 1, 2, str.tostring(math.round(rsiValue)), bgcolor=rsiValue > 50 ? color.teal : color.maroon)
+    table.cell(dash, 0, 3, "Score")
+    table.cell(dash, 1, 3, str.tostring(score), bgcolor=math.abs(score) >= 4 ? color.rgb(255, 215, 0) : color.gray)
+    table.cell(dash, 0, 4, "Position")
+    table.cell(dash, 1, 4, strategy.position_size > 0 ? "Long" : "Flat")
+
+//====================
+// ALERTS
+//====================
+alertcondition(longCondition, title="Reverse SMA RSI Long", message="Reverse SMA+RSI Strategy: long condition on {{ticker}}.")
+alertcondition(exitCondition, title="Reverse SMA RSI Exit", message="Reverse SMA+RSI Strategy: exit condition on {{ticker}}.")
