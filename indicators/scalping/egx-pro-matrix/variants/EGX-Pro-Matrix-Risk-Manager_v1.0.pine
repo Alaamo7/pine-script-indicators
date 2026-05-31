@@ -1,0 +1,118 @@
+//@version=6
+indicator("EGX Pro Matrix Risk Manager v1.0", overlay=true, max_labels_count=100)
+
+//====================================================
+// EGX Pro Matrix Risk Manager v1.0
+// Status: Beta
+// Purpose: EGX pivot matrix with higher-timeframe trend filter and risk-based position sizing.
+//====================================================
+
+//====================
+// SETTINGS
+//====================
+groupMTF = "Higher Timeframe Filter"
+groupRisk = "Risk Calculator"
+groupLevels = "Matrix Levels"
+groupVisual = "Visual Settings"
+
+htfRes = input.timeframe("240", "Higher Timeframe", group=groupMTF)
+useMTFFilter = input.bool(true, "Use Higher-Timeframe Filter", group=groupMTF)
+htfEmaLen = input.int(50, "HTF EMA Length", minval=1, group=groupMTF)
+localEmaLen = input.int(50, "Local EMA Length", minval=1, group=groupLevels)
+
+capital = input.float(100000, "Capital", minval=1, group=groupRisk)
+riskPerc = input.float(2.0, "Risk Per Trade %", minval=0.1, maxval=20, step=0.5, group=groupRisk)
+maxCostPct = input.float(100.0, "Max Position Cost % of Capital", minval=1.0, maxval=100.0, step=1.0, group=groupRisk)
+
+offset = input.int(10, "Right Label Offset", minval=1, group=groupVisual)
+showLabels = input.bool(true, "Show Level Labels", group=groupVisual)
+showDashboard = input.bool(true, "Show Dashboard", group=groupVisual)
+
+//====================
+// DAILY PIVOT MATRIX
+//====================
+pHigh = request.security(syminfo.tickerid, "D", high[1], barmerge.gaps_off, barmerge.lookahead_off)
+pLow = request.security(syminfo.tickerid, "D", low[1], barmerge.gaps_off, barmerge.lookahead_off)
+pClose = request.security(syminfo.tickerid, "D", close[1], barmerge.gaps_off, barmerge.lookahead_off)
+
+hasDailyData = not na(pHigh) and not na(pLow) and not na(pClose)
+pivot = hasDailyData ? (pHigh + pLow + pClose) / 3.0 : na
+r2 = hasDailyData ? pivot + (pHigh - pLow) : na
+s2 = hasDailyData ? pivot - (pHigh - pLow) : na
+
+//====================
+// RISK CALCULATOR
+//====================
+riskAmount = capital * (riskPerc / 100.0)
+riskPerShare = not na(s2) ? math.abs(close - s2) : na
+rawPosSize = not na(riskPerShare) and riskPerShare > syminfo.mintick ? math.floor(riskAmount / riskPerShare) : 0
+maxAffordableSize = math.floor((capital * maxCostPct / 100.0) / close)
+posSize = math.min(rawPosSize, maxAffordableSize)
+totalCost = posSize * close
+
+//====================
+// MTF TREND FILTER
+//====================
+htfClose = request.security(syminfo.tickerid, htfRes, close, barmerge.gaps_off, barmerge.lookahead_off)
+htfEma = request.security(syminfo.tickerid, htfRes, ta.ema(close, htfEmaLen), barmerge.gaps_off, barmerge.lookahead_off)
+htfTrendBull = not na(htfClose) and not na(htfEma) and htfClose > htfEma
+htfTrendBear = not na(htfClose) and not na(htfEma) and htfClose < htfEma
+
+emaLocal = ta.ema(close, localEmaLen)
+localBuy = not na(pivot) and ta.crossover(close, pivot) and close > emaLocal
+buySignal = useMTFFilter ? localBuy and htfTrendBull : localBuy
+
+//====================
+// VISUALS
+//====================
+plot(emaLocal, color=color.new(color.aqua, 0), title="Local EMA")
+plotshape(buySignal, title="Confirmed Entry", style=shape.triangleup, location=location.belowbar, color=color.lime, size=size.small, text="ENTRY")
+
+var label r2Label = na
+var label pivotLabel = na
+var label s2Label = na
+
+updateLabel(label existing, float price, string txt, color bg) =>
+    label result = existing
+    if showLabels and barstate.islast and not na(price)
+        if na(result)
+            result := label.new(bar_index + offset, price, txt + ": " + str.tostring(price, "#.##"), color=bg, textcolor=color.white, style=label.style_label_left, size=size.small)
+        else
+            label.set_xy(result, bar_index + offset, price)
+            label.set_text(result, txt + ": " + str.tostring(price, "#.##"))
+            label.set_color(result, bg)
+            label.set_textcolor(result, color.white)
+    result
+
+r2Label := updateLabel(r2Label, r2, "Target 2", color.rgb(255, 50, 50))
+pivotLabel := updateLabel(pivotLabel, pivot, "Pivot", color.rgb(41, 98, 255))
+s2Label := updateLabel(s2Label, s2, "Stop Area", color.rgb(56, 142, 60))
+
+//====================
+// DASHBOARD
+//====================
+var table dash = table.new(position.top_right, 2, 8, border_width=1, frame_color=color.gray, border_color=color.gray)
+
+if showDashboard and barstate.islast
+    table.clear(dash, 0, 0)
+    table.cell(dash, 0, 0, "EGX Risk Matrix", bgcolor=color.black, text_color=color.white)
+    table.cell(dash, 1, 0, syminfo.ticker, bgcolor=color.black, text_color=color.yellow)
+    table.cell(dash, 0, 1, "HTF Trend", bgcolor=color.rgb(30, 30, 30), text_color=color.white)
+    table.cell(dash, 1, 1, htfTrendBull ? "Bullish" : htfTrendBear ? "Bearish" : "N/A", bgcolor=htfTrendBull ? color.teal : htfTrendBear ? color.maroon : color.gray, text_color=color.white)
+    table.cell(dash, 0, 2, "Risk Amount", bgcolor=color.rgb(30, 30, 30), text_color=color.white)
+    table.cell(dash, 1, 2, str.tostring(riskAmount, "#,###") + " EGP", bgcolor=color.rgb(30, 30, 30), text_color=color.orange)
+    table.cell(dash, 0, 3, "Risk / Share", bgcolor=color.rgb(30, 30, 30), text_color=color.white)
+    table.cell(dash, 1, 3, not na(riskPerShare) ? str.tostring(riskPerShare, "#.##") : "N/A", bgcolor=color.rgb(30, 30, 30), text_color=color.white)
+    table.cell(dash, 0, 4, "Suggested Shares", bgcolor=color.rgb(30, 30, 30), text_color=color.white)
+    table.cell(dash, 1, 4, str.tostring(posSize, "#,###"), bgcolor=color.blue, text_color=color.white)
+    table.cell(dash, 0, 5, "Position Cost", bgcolor=color.rgb(30, 30, 30), text_color=color.white)
+    table.cell(dash, 1, 5, str.tostring(totalCost, "#,###") + " EGP", bgcolor=color.rgb(30, 30, 30), text_color=color.white)
+    table.cell(dash, 0, 6, "Stop Area", bgcolor=color.rgb(30, 30, 30), text_color=color.white)
+    table.cell(dash, 1, 6, not na(s2) ? str.tostring(s2, "#.##") : "N/A", bgcolor=color.rgb(30, 30, 30), text_color=color.white)
+    table.cell(dash, 0, 7, "Decision", bgcolor=color.black, text_color=color.yellow)
+    table.cell(dash, 1, 7, buySignal ? "Entry Setup" : "Wait", bgcolor=buySignal ? color.green : color.rgb(50, 50, 50), text_color=color.white)
+
+//====================
+// ALERTS
+//====================
+alertcondition(buySignal, title="EGX Pro Matrix Risk Entry", message="EGX Pro Matrix Risk Manager: entry setup detected on {{ticker}}.")
