@@ -1,0 +1,83 @@
+//@version=5
+indicator("Smart Trend Dashboard – EGX Pro v0.9", overlay=true, max_lines_count=100, max_labels_count=100)
+
+//====================================================
+// Smart Trend Dashboard – EGX Pro v0.9
+// Status: Legacy Reference
+// Purpose: Preserve older Pine v5 trend dashboard logic for historical reference.
+//====================================================
+
+lengthDI = input.int(14, title="DI/ADX Length")
+adxSmoothing = input.int(14, title="ADX Smoothing")
+rocLen = input.int(10, title="ROC Length")
+obvEmaLen = input.int(5, title="OBV EMA Smoothing")
+rsiLen = input.int(14, title="RSI Length")
+macdFast = input.int(12, title="MACD Fast")
+macdSlow = input.int(26, title="MACD Slow")
+macdSignal = input.int(9, title="MACD Signal")
+showLegend = input.bool(true, "Show Legend")
+
+// Price action
+isBullish = close > open
+isBearish = close < open
+
+// OBV
+obvVal = ta.obv
+obvEma = ta.ema(obvVal, obvEmaLen)
+obvTrend = obvVal > obvEma ? "Bullish" : obvVal < obvEma ? "Bearish" : "Flat"
+obvColor = obvTrend == "Bullish" ? color.green : obvTrend == "Bearish" ? color.red : color.white
+
+// Momentum ROC
+momentum = ta.roc(close, rocLen)
+momentumTrend = momentum > 0 ? "Bullish" : momentum < 0 ? "Bearish" : "Flat"
+momentumColor = momentumTrend == "Bullish" ? color.green : momentumTrend == "Bearish" ? color.red : color.white
+
+// DMI
+[adx, dip, dim] = ta.dmi(lengthDI, adxSmoothing)
+diStrength = dip > 25 ? "Strong" : dip < 20 ? "Weak" : "Medium"
+diColor = dip > 25 ? color.green : dip < 20 ? color.red : color.white
+
+// RSI
+rsi = ta.rsi(close, rsiLen)
+rsiTrend = rsi > 70 ? "Overbought" : rsi < 30 ? "Oversold" : rsi > 50 ? "Bullish" : "Bearish"
+rsiColor = rsiTrend == "Bullish" ? color.green : rsiTrend == "Bearish" ? color.red : color.orange
+
+// MACD
+[macdLine, signalLine, _] = ta.macd(close, macdFast, macdSlow, macdSignal)
+macdTrend = macdLine > signalLine ? "Bullish" : macdLine < signalLine ? "Bearish" : "Flat"
+macdColor = macdTrend == "Bullish" ? color.green : macdTrend == "Bearish" ? color.red : color.white
+
+// Signals
+buySignal = isBullish and obvTrend == "Bullish" and momentumTrend == "Bullish" and dip > 25 and macdTrend == "Bullish" and rsi > 50
+sellSignal = isBearish and obvTrend == "Bearish" and momentumTrend == "Bearish" and dip < 20 and macdTrend == "Bearish" and rsi < 50
+
+plotshape(buySignal, title="Buy Signal", location=location.belowbar, color=color.lime, style=shape.labelup, size=size.tiny, text="BUY")
+plotshape(sellSignal, title="Sell Signal", location=location.abovebar, color=color.red, style=shape.labeldown, size=size.tiny, text="SELL")
+
+// Dashboard
+var table dashboard = table.new(position.top_right, 2, 7, border_width=1, frame_color=color.gray, bgcolor=color.black)
+
+if barstate.islast
+    table.clear(dashboard, 0, 0)
+    table.cell(dashboard, 0, 0, "Indicator", text_color=color.white, bgcolor=color.gray, text_size=size.tiny)
+    table.cell(dashboard, 1, 0, "Current State", text_color=color.white, bgcolor=color.gray, text_size=size.tiny)
+    table.cell(dashboard, 0, 1, "Price", text_color=color.white)
+    table.cell(dashboard, 1, 1, isBullish ? "Bullish" : isBearish ? "Bearish" : "Neutral", text_color=isBullish ? color.green : isBearish ? color.red : color.white)
+    table.cell(dashboard, 0, 2, "OBV", text_color=color.white)
+    table.cell(dashboard, 1, 2, obvTrend + " (" + str.tostring(obvVal, "#.##") + ")", text_color=obvColor)
+    table.cell(dashboard, 0, 3, "Momentum", text_color=color.white)
+    table.cell(dashboard, 1, 3, momentumTrend + " (" + str.tostring(momentum, "#.##") + ")", text_color=momentumColor)
+    table.cell(dashboard, 0, 4, "DI+", text_color=color.white)
+    table.cell(dashboard, 1, 4, diStrength + " (" + str.tostring(dip, "#.##") + ")", text_color=diColor)
+    table.cell(dashboard, 0, 5, "RSI", text_color=color.white)
+    table.cell(dashboard, 1, 5, rsiTrend + " (" + str.tostring(rsi, "#.##") + ")", text_color=rsiColor)
+    table.cell(dashboard, 0, 6, "MACD", text_color=color.white)
+    table.cell(dashboard, 1, 6, macdTrend, text_color=macdColor)
+
+// Legend
+var label legend = na
+if barstate.islast and showLegend
+    if na(legend)
+        legend := label.new(x=bar_index - 20, y=high, text="Green: Bullish\nRed: Bearish\nOrange: Extreme", style=label.style_label_left, textcolor=color.white, size=size.tiny, color=color.black, textalign=text.align_left)
+    else
+        label.set_xy(legend, bar_index - 20, high)
