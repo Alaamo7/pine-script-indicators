@@ -22,6 +22,7 @@ This index lists the Pine Script assets currently organized in this repository.
 |---|---|---|---|
 | Smart EGX Smart Money Core v1.0 | Smart Money / Market Structure | Experimental | `indicators/experimental/smart-egx-smart-money-core/Smart-EGX-Smart-Money-Core_v1.0.pine` |
 | Expert EGX Analyst Pro v5.0 | Multi-Module EGX Indicator | Experimental | `indicators/experimental/expert-egx-analyst-pro/Expert-EGX-Analyst-Pro_v5.0.pine` |
+| AI Dynamic Liquidity Engine v2.0 | Smart Money / Dynamic Liquidity | Experimental | `indicators/experimental/ai-dynamic-liquidity-engine/AI-Dynamic-Liquidity-Engine_v2.0.pine` |
 
 ## Backtest Strategies
 
@@ -35,11 +36,12 @@ This index lists the Pine Script assets currently organized in this repository.
 | Script | Category | Status | Path |
 |---|---|---|---|
 | Smart EGX Institutional Suite v5.0 | Archive / Legacy | Legacy Reference | `archive/legacy/smart-egx-institutional-suite/Smart-EGX-Institutional-Suite_v5.0_Legacy-Full-Reference.pine` |
+| Smart Trend Dashboard – EGX Pro v0.9 | Archive / Legacy | Legacy Reference | `archive/legacy/egx-smart-trend-dashboard/EGX-Smart-Trend-Dashboard_v0.9.pine` |
 | Smart Market Behavior Pro – v6 Ultimate Clean | Archive / Broken or Test | Incomplete / Broken | `archive/broken-or-test/smart-market-behavior-pro/Smart-Market-Behavior-Pro_v6_Ultimate-Clean_INCOMPLETE.pine` |
 
 ## Needs Cleanup / Triage
 
-No active triage items currently listed. Remaining legacy PRs should be reviewed in separate small cleanup batches.
+No active triage items currently listed.
 
 ## Status Definitions
 
@@ -51,4 +53,4 @@ No active triage items currently listed. Remaining legacy PRs should be reviewed
 
 ## Notes
 
-The old large migration PRs are being split into smaller cleaned PRs to keep the repository maintainable and avoid merging diverged branches.
+The old large migration PRs have been split into smaller cleaned PRs to keep the repository maintainable and avoid merging diverged branches.
