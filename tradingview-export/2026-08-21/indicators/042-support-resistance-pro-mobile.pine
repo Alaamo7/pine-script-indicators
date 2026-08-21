@@ -1,0 +1,33 @@
+//@version=6
+indicator("Support & Resistance Pro - Mobile", overlay=true, max_lines_count=20)
+
+// إعدادات المستخدم
+len = input.int(20, title="عدد الشموع للحساب", minval=5)
+src = input.source(close, title="سعر الاعتماد")
+show_legend = input.bool(true, "إظهار دليل الألوان")
+
+// حساب الدعم والمقاومة
+highestHigh = ta.highest(high, len)
+lowestLow = ta.lowest(low, len)
+
+// مستويات سابقة (لزيادة الدقة)
+prev_highest = ta.valuewhen(high == highestHigh, high, 1)
+prev_lowest = ta.valuewhen(low == lowestLow, low, 1)
+
+// رسم خطوط الدعم والمقاومة (بدون title)
+line.new(bar_index-len, highestHigh, bar_index, highestHigh, color=color.red, width=2, extend=extend.right)
+line.new(bar_index-len, lowestLow, bar_index, lowestLow, color=color.green, width=2, extend=extend.right)
+
+// رسم مستويات سابقة (ثانوية)
+line.new(bar_index-len*2, prev_highest, bar_index, prev_highest, color=color.new(color.red, 60), width=1, extend=extend.right)
+line.new(bar_index-len*2, prev_lowest, bar_index, prev_lowest, color=color.new(color.green, 60), width=1, extend=extend.right)
+
+// دليل الألوان والمؤشرات
+var table legend = na
+if show_legend
+    if na(legend)
+        legend := table.new(position.top_right, 1, 4, border_width=1)
+    table.cell(legend, 0, 0, "دليل الألوان:", bgcolor=color.black, text_color=color.white)
+    table.cell(legend, 0, 1, "🔴 مقاومة رئيسية", bgcolor=color.red, text_color=color.white)
+    table.cell(legend, 0, 2, "🟢 دعم رئيسي", bgcolor=color.green, text_color=color.white)
+    table.cell(legend, 0, 3, "خطوط فاتحة: مناطق سابقة", bgcolor=color.new(color.gray, 80), text_color=color.black)

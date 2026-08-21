@@ -1,0 +1,71 @@
+//@version=6
+indicator("Smart EGX Screener – جدول موحد شامل", overlay=true)
+
+// === إعداد المؤشرات الفنية ===
+emaShort = ta.ema(close, 9)
+emaLong = ta.ema(close, 21)
+rsi = ta.rsi(close, 14)
+macdLine = ta.ema(close, 12) - ta.ema(close, 26)
+signalLine = ta.ema(macdLine, 9)
+macdHist = macdLine - signalLine
+k = ta.stoch(close, high, low, 14)
+d = ta.sma(k, 3)
+
+upMove = high - high[1]
+downMove = low[1] - low
+plusDM = (upMove > downMove and upMove > 0) ? upMove : 0
+minusDM = (downMove > upMove and downMove > 0) ? downMove : 0
+trur = ta.rma(ta.tr(true), 14)
+plusDI = 100 * ta.rma(plusDM, 14) / trur
+minusDI = 100 * ta.rma(minusDM, 14) / trur
+adx = 100 * ta.rma(math.abs(plusDI - minusDI) / (plusDI + minusDI), 14)
+
+// === الفلاتر ===
+volMA = ta.sma(volume, 20)
+sr_length = 50
+support = ta.lowest(low, sr_length)
+resistance = ta.highest(high, sr_length)
+
+isUptrend = emaShort > emaLong
+isRSIZone = rsi > 45 and rsi < 65
+isMACDPositive = macdHist > 0
+isVolumeSpike = volume > volMA
+isNearSupport = math.abs(close - support) / close < 0.03
+isBreakout = close > resistance * 1.01
+isRetest = ta.crossover(close, resistance)
+isCandleBullish = close > open and (close - open) > (high - low) * 0.5 and volume > volMA
+
+smartEntry = isUptrend and isRSIZone and isMACDPositive and isVolumeSpike and (isNearSupport or isBreakout or isRetest) and isCandleBullish
+
+// === رسم خطوط الاتجاه والمستويات ===
+plot(emaShort, title="EMA 9", color=color.orange)
+plot(emaLong, title="EMA 21", color=color.blue)
+plot(support, title="Support", color=color.green, linewidth=1, style=plot.style_linebr)
+plot(resistance, title="Resistance", color=color.red, linewidth=1, style=plot.style_linebr)
+
+// === إشارة دخول
+plotshape(smartEntry, title="ترشيح دخول", location=location.belowbar, style=shape.labelup, size=size.normal, color=color.lime, text="✅")
+
+// === جدول موحد شامل
+var table fullTable = table.new(position.bottom_right, 4, 8, border_width=1)
+
+if bar_index % 10 == 0
+    table.cell(fullTable, 0, 0, "📊 الدليل المفتاحي", text_color=color.white, bgcolor=color.gray)
+    table.cell(fullTable, 0, 1, "🟧 EMA 9 (برتقالي)", text_color=color.orange)
+    table.cell(fullTable, 0, 2, "🟦 EMA 21 (أزرق)", text_color=color.blue)
+    table.cell(fullTable, 0, 3, "🟩 دعم أخضر / مقاومة حمراء", text_color=color.green)
+
+    table.cell(fullTable, 1, 0, "🔎 الفلاتر", text_color=color.white, bgcolor=color.gray)
+    table.cell(fullTable, 1, 1, "اتجاه صاعد", text_color=isUptrend ? color.green : color.red)
+    table.cell(fullTable, 1, 2, "زخم RSI", text_color=isRSIZone ? color.green : color.red)
+    table.cell(fullTable, 1, 3, "MACD موجب", text_color=isMACDPositive ? color.green : color.red)
+
+    table.cell(fullTable, 2, 0, "📈 الفلاتر", text_color=color.white, bgcolor=color.gray)
+    table.cell(fullTable, 2, 1, "فوليوم قوي", text_color=isVolumeSpike ? color.green : color.red)
+    table.cell(fullTable, 2, 2, "قرب دعم/اختراق", text_color=(isNearSupport or isBreakout or isRetest) ? color.green : color.red)
+    table.cell(fullTable, 2, 3, "شمعة دخول", text_color=isCandleBullish ? color.green : color.red)
+
+    table.cell(fullTable, 3, 0, "📊 المؤشرات", text_color=color.white, bgcolor=color.gray)
+    table.cell(fullTable, 3, 1, "RSI: " + str.tostring(rsi, "#.0"))
+    table.cell(fullTable, 3, 2, "MACD Hist: " + str.tostring(macdHist, "#.0"))
+    table.cell(fullTable, 3, 3, "ADX: " + str.tostring(adx, "#.0"))

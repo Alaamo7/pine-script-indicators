@@ -1,0 +1,186 @@
+//@version=6
+indicator("MM Trap Pro", overlay=true, max_labels_count=100)
+
+//====================================================
+// 1) Core Settings
+//====================================================
+groupCore   = "Core Settings"
+groupVis    = "Visual Settings"
+groupLegend = "Legend / Dashboard"
+
+length         = input.int(20, "Volume Length", minval=1, group=groupCore)
+mult           = input.float(2.0, "Volume Multiplier", minval=0.1, step=0.1, group=groupCore)
+minBodyPercent = input.float(0.5, "Min Body %", minval=0.0, step=0.1, group=groupCore)
+
+showBearTrapLine = input.bool(true, "Show Bear Trap Line", group=groupVis)
+showBullTrapLine = input.bool(true, "Show Bull Trap Line", group=groupVis)
+showBgColor      = input.bool(true, "Show Background Highlight", group=groupVis)
+showSignals      = input.bool(true, "Show Signal Labels", group=groupVis)
+showLegend       = input.bool(true, "Show Legend", group=groupLegend)
+mobileMode       = input.bool(true, "Mobile Friendly Mode", group=groupLegend)
+
+//====================================================
+// 2) Calculations
+//====================================================
+avgVolume   = ta.sma(volume, length)
+highVolume  = volume > avgVolume * mult
+
+bodySize    = math.abs(close - open)
+bodyPercent = open != 0 ? (bodySize / open) * 100 : 0.0
+
+bearishTrap = close > open and highVolume and close < high[1] and bodyPercent > minBodyPercent
+bullishTrap = close < open and highVolume and close > low[1] and bodyPercent > minBodyPercent
+
+//====================================================
+// 3) Style Controls
+//====================================================
+bearCol   = color.rgb(220, 60, 60)
+bullCol   = color.rgb(0, 200, 120)
+neutralBg = color.rgb(20, 25, 35)
+headCol   = color.rgb(25, 110, 170)
+softBear  = color.new(bearCol, 84)
+softBull  = color.new(bullCol, 84)
+
+lineW = mobileMode ? 2 : 3
+
+//====================================================
+// 4) Trap Lines
+//====================================================
+plot(
+     showBearTrapLine and bearishTrap ? high : na,
+     title="Bear Trap Line",
+     color=color.new(bearCol, 0),
+     linewidth=lineW,
+     style=plot.style_linebr
+)
+
+plot(
+     showBullTrapLine and bullishTrap ? low : na,
+     title="Bull Trap Line",
+     color=color.new(bullCol, 0),
+     linewidth=lineW,
+     style=plot.style_linebr
+)
+
+//====================================================
+// 5) Background Highlight
+//====================================================
+bgcolor(
+     showBgColor ?
+     bearishTrap ? softBear :
+     bullishTrap ? softBull :
+     na : na
+)
+
+//====================================================
+// 6) Signal Markers
+// حل مشكلة size بعمل نسختين: موبايل + ديسكتوب
+//====================================================
+
+// Mobile mode
+plotshape(
+     showSignals and mobileMode and bearishTrap,
+     title="Bearish Trap Mobile",
+     location=location.abovebar,
+     style=shape.labeldown,
+     size=size.tiny,
+     color=bearCol,
+     text="SELL\nTRAP",
+     textcolor=color.white
+)
+
+plotshape(
+     showSignals and mobileMode and bullishTrap,
+     title="Bullish Trap Mobile",
+     location=location.belowbar,
+     style=shape.labelup,
+     size=size.tiny,
+     color=bullCol,
+     text="BUY\nTRAP",
+     textcolor=color.black
+)
+
+// Desktop mode
+plotshape(
+     showSignals and not mobileMode and bearishTrap,
+     title="Bearish Trap Desktop",
+     location=location.abovebar,
+     style=shape.labeldown,
+     size=size.small,
+     color=bearCol,
+     text="SELL\nTRAP",
+     textcolor=color.white
+)
+
+plotshape(
+     showSignals and not mobileMode and bullishTrap,
+     title="Bullish Trap Desktop",
+     location=location.belowbar,
+     style=shape.labelup,
+     size=size.small,
+     color=bullCol,
+     text="BUY\nTRAP",
+     textcolor=color.black
+)
+
+//====================================================
+// 7) Status Logic
+//====================================================
+signalText =
+     bearishTrap ? "Bearish Trap" :
+     bullishTrap ? "Bullish Trap" :
+     "No Trap"
+
+signalColor =
+     bearishTrap ? bearCol :
+     bullishTrap ? bullCol :
+     color.gray
+
+volState =
+     highVolume ? "High Vol" : "Normal Vol"
+
+bodyState =
+     bodyPercent >= minBodyPercent ? "Valid Body" : "Weak Body"
+
+modeText =
+     mobileMode ? "Mobile" : "Desktop"
+
+//====================================================
+// 8) Dashboard / Legend
+//====================================================
+var table dash = table.new(
+     position.top_right,
+     2,
+     8,
+     border_width=1,
+     frame_color=color.new(color.white, 70),
+     bgcolor=color.new(neutralBg, 15)
+)
+
+if barstate.islast
+    table.clear(dash, 0, 0)
+
+    if showLegend
+        table.cell(dash, 0, 0, "MM Trap Pro", text_color=color.white, bgcolor=headCol, text_size=size.small)
+        table.cell(dash, 1, 0, "Visual Guide", text_color=color.white, bgcolor=headCol, text_size=size.small)
+
+        table.cell(dash, 0, 1, "Signal", text_color=color.white, bgcolor=color.new(color.black, 0), text_size=size.small)
+        table.cell(dash, 1, 1, signalText, text_color=color.white, bgcolor=color.new(signalColor, 15), text_size=size.small)
+
+        table.cell(dash, 0, 2, "Bear Trap", text_color=color.white, bgcolor=color.new(color.black, 0), text_size=size.small)
+        table.cell(dash, 1, 2, "Red Line / Red Label", text_color=color.white, bgcolor=color.new(bearCol, 30), text_size=size.small)
+
+        table.cell(dash, 0, 3, "Bull Trap", text_color=color.white, bgcolor=color.new(color.black, 0), text_size=size.small)
+        table.cell(dash, 1, 3, "Green Line / Green Label", text_color=color.white, bgcolor=color.new(bullCol, 30), text_size=size.small)
+
+        table.cell(dash, 0, 4, "Volume", text_color=color.white, bgcolor=color.new(color.black, 0), text_size=size.small)
+        table.cell(dash, 1, 4, volState, text_color=color.white, bgcolor=color.new(color.blue, 75), text_size=size.small)
+
+        table.cell(dash, 0, 5, "Body Filter", text_color=color.white, bgcolor=color.new(color.black, 0), text_size=size.small)
+        table.cell(dash, 1, 5, bodyState, text_color=color.white, bgcolor=color.new(color.orange, 70), text_size=size.small)
+
+        table.cell(dash, 0, 6, "Mode", text_color=color.white, bgcolor=color.new(color.black, 0), text_size=size.small)
+        table.cell(dash, 1, 6, modeText, text_color=color.white, bgcolor=color.new(color.teal, 70), text_size=size.small)
+
+        table.cell(dash, 0, 7, "Logic", text_color=color.white, bgcolor=color.new(color.black, 0), text_size=size.small)
+        table.cell(dash, 1, 7, "Volume + Candle + Prev Bar", text_color=color.white, bgcolor=color.new(color.gray, 70), text_size=size.small)

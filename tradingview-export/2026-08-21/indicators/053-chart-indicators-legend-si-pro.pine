@@ -1,0 +1,92 @@
+//@version=5
+indicator("Chart Indicators Legend (SI Pro)", shorttitle="Chart Legend (SI)", overlay=true)
+
+// --- واجهة التحكم ---
+g_visibility = "إظهار/إخفاء المؤشرات"
+show_EMA_Short = input.bool(true, "متوسطات المضارب (EMA 9, 21)", group=g_visibility)
+show_VWAP = input.bool(true, "متوسط السعر بالحجم (VWAP)", group=g_visibility)
+show_BB = input.bool(true, "بولينجر باند (Bollinger Bands)", group=g_visibility)
+show_SMA50 = input.bool(true, "متوسط 50 (قصير الأجل)", group=g_visibility)
+show_EMA100 = input.bool(true, "متوسط 100 (متوسط الأجل)", group=g_visibility)
+show_Ichimoku = input.bool(true, "سحابة إيشيموكو (Ichimoku)", group=g_visibility)
+show_EMA200 = input.bool(true, "متوسط 200 (طويل الأجل)", group=g_visibility)
+show_SD_Signals = input.bool(true, "إشارات الطلب والعرض", group=g_visibility)
+
+// --- تعريف الألوان ---
+color color_ema9 = color.new(color.aqua, 0)
+color color_ema21 = color.new(color.blue, 0)
+color color_vwap = color.new(color.yellow, 0)
+color color_bb = color.gray
+color color_sma50 = color.new(color.orange, 0)
+color color_ema100 = color.new(color.purple, 0)
+color color_ema200 = color.new(color.red, 0)
+color color_ichi_conv = color.new(color.green, 40)
+color color_ichi_base = color.new(color.red, 40)
+color color_ichi_cloud = color.new(color.gray, 90)
+
+// --- دالة مساعدة للدليل ---
+f_add_legend_entry(table_id, row, indicator_name, indicator_color) =>
+    table.cell(table_id, 0, row, text="■", text_color=indicator_color, text_size=size.tiny, bgcolor=color.new(color.black, 90))
+    table.cell(table_id, 1, row, text=indicator_name, text_size=size.tiny, text_color=color.white, bgcolor=color.new(color.black, 90))
+
+// --- المؤشرات ---
+ema_short1 = ta.ema(close, 9)
+ema_short2 = ta.ema(close, 21)
+plot(show_EMA_Short ? ema_short1 : na, "EMA 9", color=color_ema9, linewidth=1)
+plot(show_EMA_Short ? ema_short2 : na, "EMA 21", color=color_ema21, linewidth=1)
+
+vwapValue = ta.vwap(hlc3)
+plot(show_VWAP ? vwapValue : na, "VWAP", color=color_vwap)
+
+basis = ta.sma(close, 20)
+dev = 2.0 * ta.stdev(close, 20)
+upper_band = basis + dev
+lower_band = basis - dev
+plot(show_BB ? basis : na, "BB Basis", color=color_bb)
+p_upper = plot(show_BB ? upper_band : na, "BB Upper", color=color_bb)
+p_lower = plot(show_BB ? lower_band : na, "BB Lower", color=color_bb)
+fill(p_upper, p_lower, color=color.new(color_bb, 90))
+
+sma50 = ta.sma(close, 50)
+plot(show_SMA50 ? sma50 : na, "SMA 50", color=color_sma50, linewidth=2)
+
+ema100 = ta.ema(close, 100)
+plot(show_EMA100 ? ema100 : na, "EMA 100", color=color_ema100, linewidth=2)
+
+ema200 = ta.ema(close, 200)
+plot(show_EMA200 ? ema200 : na, "EMA 200", color=color_ema200, linewidth=3)
+
+conversionPeriods = 9, basePeriods = 26, laggingSpan2Periods = 52, displacement = 26
+conversionLine = (ta.highest(high, conversionPeriods) + ta.lowest(low, conversionPeriods)) / 2
+baseLine = (ta.highest(high, basePeriods) + ta.lowest(low, basePeriods)) / 2
+leadLine1 = (conversionLine + baseLine) / 2
+leadLine2 = (ta.highest(high, laggingSpan2Periods) + ta.lowest(low, laggingSpan2Periods)) / 2
+plot(show_Ichimoku ? conversionLine : na, "Tenkan-sen", color=color_ichi_conv)
+plot(show_Ichimoku ? baseLine : na, "Kijun-sen", color=color_ichi_base)
+p1 = plot(show_Ichimoku ? leadLine1 : na, "Senkou A", offset=displacement, color=color.new(color.green, 80))
+p2 = plot(show_Ichimoku ? leadLine2 : na, "Senkou B", offset=displacement, color=color.new(color.red, 80))
+fill(p1, p2, color=color_ichi_cloud)
+
+lowestLow = ta.lowest(low, 20)
+highestHigh = ta.highest(high, 20)
+isDemandSignal = low <= lowestLow[1] and close > open
+isSupplySignal = high >= highestHigh[1] and close < open
+plotshape(show_SD_Signals and isDemandSignal, "إشارة طلب", shape.triangleup, location.belowbar, color.green, size=size.small)
+plotshape(show_SD_Signals and isSupplySignal, "إشارة عرض", shape.triangledown, location.abovebar, color.red, size=size.small)
+
+// --- الدليل المفتاحي المعدل ---
+var table legend = table.new(position.top_right, 2, 11, border_width=1, frame_color=color.orange, frame_width=1, bgcolor=color.new(color.black, 90))
+
+if barstate.islast
+    table.cell(legend, 0, 0, "■", text_color=color.orange, text_size=size.small, bgcolor=color.new(color.black, 80))
+    table.cell(legend, 1, 0, "📊 دليل مؤشرات الشارت", text_size=size.small, bgcolor=color.new(color.black, 80), text_color=color.white)
+    f_add_legend_entry(legend, 1, "متوسط 9 (مضارب)", color_ema9)
+    f_add_legend_entry(legend, 2, "متوسط 21 (مضارب)", color_ema21)
+    f_add_legend_entry(legend, 3, "متوسط السعر بالحجم", color_vwap)
+    f_add_legend_entry(legend, 4, "بولينجر باند", color_bb)
+    f_add_legend_entry(legend, 5, "متوسط 50 (قصير)", color_sma50)
+    f_add_legend_entry(legend, 6, "متوسط 100 (متوسط)", color_ema100)
+    f_add_legend_entry(legend, 7, "متوسط 200 (طويل)", color_ema200)
+    f_add_legend_entry(legend, 8, "Tenkan (تحويل)", color_ichi_conv)
+    f_add_legend_entry(legend, 9, "Kijun (أساسي)", color_ichi_base)
+    f_add_legend_entry(legend, 10, "إشارات طلب/عرض", color.green)

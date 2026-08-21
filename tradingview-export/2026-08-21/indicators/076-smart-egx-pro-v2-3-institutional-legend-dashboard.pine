@@ -1,0 +1,203 @@
+//@version=6
+indicator("Smart EGX PRO v2.3 — Institutional + Legend Dashboard", overlay=true,
+     max_labels_count=500, max_lines_count=300)
+
+//==============================
+// INPUTS
+//==============================
+pivotLen = input.int(5, "Structure Pivot Length")
+rsiLen   = input.int(14, "RSI Length")
+atrLen   = input.int(14, "ATR Length")
+emaBiasLen = input.int(50, "Bias EMA Length")
+
+showVWAP = input.bool(true, "Show VWAP")
+showLiquidity = input.bool(true, "Show Liquidity Pools")
+
+//==============================
+// CORE
+//==============================
+atr = ta.atr(atrLen)
+rsi = ta.rsi(close, rsiLen)
+vwap = ta.vwap(hlc3)
+
+//==============================
+// STRUCTURE
+//==============================
+ph = ta.pivothigh(high, pivotLen, pivotLen)
+pl = ta.pivotlow(low, pivotLen, pivotLen)
+
+var float lastHigh = na
+var float lastLow  = na
+
+if not na(ph)
+    lastHigh := ph
+if not na(pl)
+    lastLow := pl
+
+var int trendState = 0
+
+bosUp   = not na(lastHigh) and close > lastHigh
+bosDown = not na(lastLow) and close < lastLow
+
+chochDown = trendState == 1 and bosDown
+chochUp   = trendState == -1 and bosUp
+
+if chochDown
+    trendState := -1
+else if chochUp
+    trendState := 1
+else if bosUp
+    trendState := 1
+else if bosDown
+    trendState := -1
+
+plotshape(bosUp, title="BOS UP", style=shape.triangleup, location=location.belowbar, color=color.green, size=size.tiny)
+plotshape(bosDown, title="BOS DOWN", style=shape.triangledown, location=location.abovebar, color=color.red, size=size.tiny)
+
+//==============================
+// LIQUIDITY SWEEPS
+//==============================
+sweepHigh = not na(lastHigh) and high > lastHigh and close < lastHigh
+sweepLow  = not na(lastLow) and low < lastLow and close > lastLow
+
+plotshape(sweepHigh, style=shape.xcross, location=location.abovebar, color=color.orange, size=size.tiny)
+plotshape(sweepLow,  style=shape.xcross, location=location.belowbar, color=color.aqua, size=size.tiny)
+
+//==============================
+// LIQUIDITY POOLS
+//==============================
+var line[] liqLines = array.new_line()
+liqTolerance = atr * 0.15
+
+equalHigh = showLiquidity and not na(ph) and not na(lastHigh[1]) and math.abs(ph - lastHigh[1]) <= liqTolerance
+equalLow  = showLiquidity and not na(pl) and not na(lastLow[1]) and math.abs(pl - lastLow[1]) <= liqTolerance
+
+if equalHigh
+    l = line.new(bar_index - pivotLen, ph, bar_index + 150, ph, extend=extend.right)
+    line.set_color(l, color.red)
+    array.push(liqLines, l)
+
+if equalLow
+    l2 = line.new(bar_index - pivotLen, pl, bar_index + 150, pl, extend=extend.right)
+    line.set_color(l2, color.green)
+    array.push(liqLines, l2)
+
+// SAFE CLEANUP
+if array.size(liqLines) > 0
+    for i = array.size(liqLines) - 1 to 0
+        ln = array.get(liqLines, i)
+        level = line.get_y1(ln)
+        if high > level or low < level
+            line.delete(ln)
+            array.remove(liqLines, i)
+
+//==============================
+// DIVERGENCE
+//==============================
+pL = ta.pivotlow(low,5,5)
+pH = ta.pivothigh(high,5,5)
+
+bullDiv = not na(pL) and rsi > rsi[5]
+bearDiv = not na(pH) and rsi < rsi[5]
+
+plotshape(bullDiv, style=shape.circle, location=location.belowbar, color=color.lime, size=size.tiny)
+plotshape(bearDiv, style=shape.circle, location=location.abovebar, color=color.red, size=size.tiny)
+
+//==============================
+// MTF BIAS
+//==============================
+dClose = request.security(syminfo.tickerid, "D", close)
+dEMA   = request.security(syminfo.tickerid, "D", ta.ema(close, emaBiasLen))
+
+biasBull = dClose >= dEMA
+biasBear = dClose < dEMA
+
+//==============================
+// HEAT
+//==============================
+heat =
+     sweepHigh ? 85 :
+     sweepLow ? 15 :
+     rsi >= 75 ? 75 :
+     rsi <= 25 ? 25 :
+     biasBull ? 35 :
+     biasBear ? 65 :
+     50
+
+heatLabel =
+     heat >= 80 ? "HIGH RISK" :
+     heat <= 20 ? "DISCOUNT" :
+     heat >= 65 ? "Overbought" :
+     heat <= 35 ? "Buy Zone" :
+     "Neutral"
+
+//==============================
+// VWAP
+//==============================
+plot(showVWAP ? vwap : na, color=color.blue, linewidth=2)
+
+//==============================
+// DASHBOARD + LEGEND
+//==============================
+var table dash = table.new(position.top_right, 3, 9, border_width=1)
+
+if barstate.islast
+
+    table.cell(dash,0,0,"SMART EGX PRO v2.3", bgcolor=color.rgb(15,15,40), text_color=color.white)
+    table.cell(dash,1,0,"")
+    table.cell(dash,2,0,"")
+
+    table.cell(dash,0,1,"Structure")
+    table.cell(dash,1,1,
+        bosUp ? "BOS UP" :
+        bosDown ? "BOS DOWN" :
+        "Neutral",
+        bgcolor=bosUp?color.green:bosDown?color.red:color.gray,
+        text_color=color.white)
+    table.cell(dash,2,1,"▲", text_color=bosUp?color.green:bosDown?color.red:color.gray)
+
+    table.cell(dash,0,2,"Liquidity Sweep")
+    table.cell(dash,1,2,
+        sweepHigh ? "High Sweep" :
+        sweepLow ? "Low Sweep" :
+        "None",
+        bgcolor=(sweepHigh or sweepLow)?color.orange:color.gray,
+        text_color=color.white)
+    table.cell(dash,2,2,"✖", text_color=color.orange)
+
+    table.cell(dash,0,3,"Divergence")
+    table.cell(dash,1,3,
+        bullDiv ? "Bull Div" :
+        bearDiv ? "Bear Div" :
+        "None",
+        bgcolor=bullDiv?color.green:bearDiv?color.red:color.gray,
+        text_color=color.white)
+    table.cell(dash,2,3,"●", text_color=bullDiv?color.green:bearDiv?color.red:color.gray)
+
+    table.cell(dash,0,4,"MTF Bias")
+    table.cell(dash,1,4,
+        biasBull ? "Bullish" : "Bearish",
+        bgcolor=biasBull?color.green:color.red,
+        text_color=color.white)
+    table.cell(dash,2,4,"■", text_color=biasBull?color.green:color.red)
+
+    table.cell(dash,0,5,"HEAT")
+    table.cell(dash,1,5,
+        str.tostring(heat)+" | "+heatLabel,
+        bgcolor=heat>=70?color.red:heat<=30?color.green:color.gray,
+        text_color=color.white)
+    table.cell(dash,2,5,"⚡", text_color=color.yellow)
+
+    table.cell(dash,0,6,"RSI")
+    table.cell(dash,1,6,str.tostring(int(rsi)))
+    table.cell(dash,2,6,"", bgcolor=color.orange)
+
+    table.cell(dash,0,7,"VWAP")
+    table.cell(dash,1,7,showVWAP?"Active":"Off",
+        bgcolor=showVWAP?color.blue:color.gray,
+        text_color=color.white)
+    table.cell(dash,2,7,"━", text_color=color.blue)
+
+    table.cell(dash,0,8,"Price")
+    table.cell(dash,1,8,str.tostring(close))
+    table.cell(dash,2,8,"")

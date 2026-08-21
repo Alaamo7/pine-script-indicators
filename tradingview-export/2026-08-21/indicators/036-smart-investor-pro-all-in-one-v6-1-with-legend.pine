@@ -1,0 +1,135 @@
+//@version=6
+// Smart Investor Pro - All-in-One v6.1 (With Legend)
+// آخر تحديث: 29 مايو 2025
+indicator("Smart Investor Pro - All-in-One v6.1 (With Legend)", overlay=true, max_labels_count=1)
+
+// ====== إعدادات التحكم ======
+reset         = input.bool(false, "🔄 إعادة الإعدادات للوضع الافتراضي؟")
+show_EMA_Short= input.bool(true, "إظهار EMA (مضارب)")
+show_VWAP     = input.bool(true, "إظهار VWAP")
+show_BB       = input.bool(true, "إظهار Bollinger Bands")
+show_SMA50    = input.bool(true, "إظهار SMA 50")
+show_MACD     = input.bool(true, "إظهار MACD")
+show_EMA100   = input.bool(true, "إظهار EMA 100")
+show_Ichimoku = input.bool(true, "إظهار إيشيموكو")
+show_EMA200   = input.bool(true, "إظهار EMA 200")
+show_RSI      = input.bool(true, "إظهار RSI")
+show_SD_Zones = input.bool(true, "إظهار مناطق الطلب والعرض")
+isHigherTF    = input.bool(false, "تفعيل عرض المؤشر من فاصل زمني أعلى؟")
+higherTF      = input.timeframe("D", "اختر الفاصل الزمني الأعلى")
+
+src = isHigherTF ? request.security(syminfo.tickerid, higherTF, close) : close
+
+// ====== المؤشرات الأساسية ======
+ema_short1 = ta.ema(src, 9)
+ema_short2 = ta.ema(src, 21)
+plot(show_EMA_Short ? ema_short1 : na, color=color.aqua, linewidth=1, title="EMA 9 (مضارب)")
+plot(show_EMA_Short ? ema_short2 : na, color=color.blue, linewidth=1, title="EMA 21 (مضارب)")
+
+vwap = ta.vwap(isHigherTF ? request.security(syminfo.tickerid, higherTF, hlc3) : hlc3)
+plot(show_VWAP ? vwap : na, color=color.yellow, title="VWAP")
+
+bb_src    = src
+basis     = ta.sma(bb_src, 20)
+dev       = 2.0 * ta.stdev(bb_src, 20)
+upper_band= basis + dev
+lower_band= basis - dev
+plot(show_BB ? basis : na, "BB Basis", color=color.gray)
+plot(show_BB ? upper_band : na, "BB Upper", color=color.gray)
+plot(show_BB ? lower_band : na, "BB Lower", color=color.gray)
+
+sma50 = ta.sma(src, 50)
+plot(show_SMA50 ? sma50 : na, color=color.orange, linewidth=2, title="SMA 50")
+
+[macdLine, signalLine, histLine] = ta.macd(src, 12, 26, 9)
+plot(show_MACD ? macdLine : na, title="MACD Line", color=color.green)
+plot(show_MACD ? signalLine : na, title="Signal Line", color=color.red)
+plot(show_MACD ? histLine : na, title="MACD Histogram", style=plot.style_columns, color=color.gray)
+
+ema100 = ta.ema(src, 100)
+plot(show_EMA100 ? ema100 : na, color=color.purple, linewidth=2, title="EMA 100")
+
+high_src = isHigherTF ? request.security(syminfo.tickerid, higherTF, high) : high
+low_src  = isHigherTF ? request.security(syminfo.tickerid, higherTF, low) : low
+conversionPeriods    = 9
+basePeriods         = 26
+laggingSpan2Periods = 52
+displacement        = 26
+
+conversionLine = (ta.highest(high_src, conversionPeriods) + ta.lowest(low_src, conversionPeriods)) / 2
+baseLine      = (ta.highest(high_src, basePeriods) + ta.lowest(low_src, basePeriods)) / 2
+leadLine1     = (conversionLine + baseLine) / 2
+leadLine2     = (ta.highest(high_src, laggingSpan2Periods) + ta.lowest(low_src, laggingSpan2Periods)) / 2
+laggingSpan   = src
+
+plot(show_Ichimoku ? conversionLine : na, title="Conversion Line", color=color.new(color.green, 30))
+plot(show_Ichimoku ? baseLine : na, title="Base Line", color=color.new(color.red, 30))
+plot(show_Ichimoku ? laggingSpan : na, offset=-displacement, title="Lagging Span", color=color.new(color.gray, 40))
+p1 = plot(show_Ichimoku ? leadLine1 : na, title="Senkou Span A", offset=displacement, color=color.new(color.green, 60))
+p2 = plot(show_Ichimoku ? leadLine2 : na, title="Senkou Span B", offset=displacement, color=color.new(color.red, 60))
+cloudColorBull = color.new(color.green, 85)
+cloudColorBear = color.new(color.red, 85)
+fill(p1, p2, color=(leadLine1 > leadLine2 ? cloudColorBull : cloudColorBear), title="Ichimoku Cloud")
+
+ema200 = ta.ema(src, 200)
+plot(show_EMA200 ? ema200 : na, color=color.red, linewidth=3, title="EMA 200")
+
+rsi = ta.rsi(src, 14)
+rsi_overbought = 70
+rsi_oversold = 30
+rsiColor = rsi > rsi_overbought ? color.red : rsi < rsi_oversold ? color.green : color.gray
+plot(show_RSI ? rsi : na, "RSI", color=rsiColor)
+
+lowestLow   = ta.lowest(low, 20)
+highestHigh = ta.highest(high, 20)
+isDemandZone= low <= lowestLow and close > open
+isSupplyZone= high >= highestHigh and close < open
+demandLevel = isDemandZone ? low : na
+supplyLevel = isSupplyZone ? high : na
+plotshape(show_SD_Zones and isDemandZone ? demandLevel : na, style=shape.triangleup, location=location.belowbar, color=color.green, title="منطقة طلب")
+plotshape(show_SD_Zones and isSupplyZone ? supplyLevel : na, style=shape.triangledown, location=location.abovebar, color=color.red, title="منطقة عرض")
+
+alertcondition(ta.crossover(ema_short1, ema_short2), title="تقاطع EMA للمضارب (شراء)", message="EMA 9 crossed above EMA 21")
+alertcondition(ta.crossunder(ema_short1, ema_short2), title="تقاطع EMA للمضارب (بيع)", message="EMA 9 crossed below EMA 21")
+
+// ========== دليل الألوان والمؤشرات ========== //
+legendText = "دليل الألوان والمؤشرات:\n"+
+"EMA 9: سماوي - اتجاه سريع\n"+
+"EMA 21: أزرق - اتجاه قصير\n"+
+"EMA 100: بنفسجي - اتجاه متوسط\n"+
+"EMA 200: أحمر - اتجاه رئيسي\n"+
+"SMA 50: برتقالي - متوسط\n"+
+"VWAP: أصفر - متوسط مرجح بالحجم\n"+
+"Bollinger Bands: رمادي - تقلب السعر\n"+
+"MACD: أخضر - زخم\n"+
+"MACD Signal: أحمر - خط الإشارة\n"+
+"MACD Histogram: رمادي - أعمدة الزخم\n"+
+"Ichimoku Conv.: أخضر فاتح شفاف\n"+
+"Ichimoku Base: أحمر فاتح شفاف\n"+
+"Senkou A: أخضر شفاف\n"+
+"Senkou B: أحمر شفاف\n"+
+"سحابة صاعدة: أخضر فاتح جدًا\n"+
+"سحابة هابطة: أحمر فاتح جدًا\n"+
+"RSI > 70: أحمر - تشبع شراء\n"+
+"RSI < 30: أخضر - تشبع بيع\n"+
+"RSI عادي: رمادي\n"+
+"منطقة طلب: مثلث أخضر\n"+
+"منطقة عرض: مثلث أحمر"
+
+// رسم الدليل أعلى الشارت (label)
+var legendLabel = na
+if bar_index == ta.highest(bar_index, 100)
+    legendLabel := label.new(
+      x = bar_index,
+      y = high,
+      text = legendText,
+      xloc = xloc.bar_index,
+      yloc = yloc.price,
+      color = color.new(color.white, 92),
+      style = label.style_label_down,
+      textcolor = color.black,
+      size = size.normal
+    )
+if not na(legendLabel)
+    label.set_x(legendLabel, bar_index)
+    label.set_y(legendLabel, high)

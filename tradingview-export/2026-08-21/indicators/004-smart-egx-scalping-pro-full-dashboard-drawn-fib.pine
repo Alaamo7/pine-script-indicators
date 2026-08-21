@@ -1,0 +1,250 @@
+//@version=6
+indicator("Smart EGX Scalping Pro | Full Dashboard Drawn", overlay=true, max_lines_count=70, max_labels_count=60)
+
+// ==== إعدادات التحكم ====
+showTable      = input(true, "إظهار الجدول (Dashboard)")
+tableLocation  = input.string("top_right", "موقع الجدول", options=["top_right", "top_left", "bottom_right", "bottom_left"])
+fontSize       = input.int(11, "حجم الخط في الجدول", minval=9, maxval=22)
+showVolume     = input(true, "إظهار الفوليوم اللحظي")
+showATR        = input(true, "إظهار ATR")
+showArrows     = input(true, "إظهار الأسهم بجانب القيم")
+
+// ==== المتوسطات المصرية ====
+ema13  = ta.ema(close, 13)
+ema30  = ta.ema(close, 30)
+ema72  = ta.ema(close, 72)
+ema144 = ta.ema(close, 144)
+ema288 = ta.ema(close, 288)
+
+// ==== VWAP ====
+vwap = ta.vwap(hlc3)
+
+// ==== بولينجر باند ====
+bbLength = 20
+bbMult = 2.0
+bbBasis = ta.sma(close, bbLength)
+bbDev   = bbMult * ta.stdev(close, bbLength)
+bbUpper = bbBasis + bbDev
+bbLower = bbBasis - bbDev
+
+// ==== إيشيموكو ====
+tenkan   = (ta.highest(high, 9) + ta.lowest(low, 9)) / 2
+kijun    = (ta.highest(high, 26) + ta.lowest(low, 26)) / 2
+senkouA  = (tenkan + kijun) / 2
+senkouB  = (ta.highest(high, 52) + ta.lowest(low, 52)) / 2
+
+// ==== المؤشرات الكلاسيكية ====
+rsi = ta.rsi(close, 14)
+[macdLine, signalLine, _] = ta.macd(close, 12, 26, 9)
+adx_length = 14
+up = ta.change(high)
+down = -ta.change(low)
+plusDM = na(up) ? na : (up > down and up > 0 ? up : 0)
+minusDM = na(down) ? na : (down > up and down > 0 ? down : 0)
+trur = ta.rma(ta.tr(true), adx_length)
+plus = 100 * ta.rma(plusDM, adx_length) / trur
+minus = 100 * ta.rma(minusDM, adx_length) / trur
+sum = plus + minus
+adx = 100 * ta.rma(math.abs(plus - minus) / (sum == 0 ? 1 : sum), adx_length)
+kLength = 14
+k = ta.stoch(close, high, low, kLength)
+d = ta.sma(k, 3)
+
+// ==== دعم ومقاومة أوتوماتيك ====
+pivotHigh = ta.pivothigh(high, 5, 5)
+pivotLow = ta.pivotlow(low, 5, 5)
+var float resistance = na
+var float support = na
+if not na(pivotHigh)
+    resistance := high[5]
+if not na(pivotLow)
+    support := low[5]
+
+// ==== مستويات فيبوناتشي ====
+var float fibHigh = na
+var float fibLow  = na
+if not na(pivotHigh)
+    fibHigh := high[5]
+if not na(pivotLow)
+    fibLow  := low[5]
+float fib0   = na
+float fib236 = na
+float fib382 = na
+float fib500 = na
+float fib618 = na
+float fib786 = na
+float fib1   = na
+if not na(fibHigh) and not na(fibLow) and fibHigh != fibLow
+    fib0   := fibLow
+    fib236 := fibLow + 0.236 * (fibHigh - fibLow)
+    fib382 := fibLow + 0.382 * (fibHigh - fibLow)
+    fib500 := fibLow + 0.5   * (fibHigh - fibLow)
+    fib618 := fibLow + 0.618 * (fibHigh - fibLow)
+    fib786 := fibLow + 0.786 * (fibHigh - fibLow)
+    fib1   := fibHigh
+if not na(fibHigh) and not na(fibLow) and fibHigh != fibLow
+    line.new(bar_index-5, fib0, bar_index, fib0, color=color.gray,    width=1, style=line.style_dotted)
+    line.new(bar_index-5, fib236, bar_index, fib236, color=color.yellow,  width=2)
+    line.new(bar_index-5, fib382, bar_index, fib382, color=color.teal,    width=2)
+    line.new(bar_index-5, fib500, bar_index, fib500, color=color.fuchsia, width=2)
+    line.new(bar_index-5, fib618, bar_index, fib618, color=color.green,   width=2)
+    line.new(bar_index-5, fib786, bar_index, fib786, color=color.orange,  width=2)
+    line.new(bar_index-5, fib1, bar_index, fib1, color=color.red,         width=3)
+
+// ==== مؤشرات إضافية ====
+atr = ta.atr(14)
+
+// ==== دوال تلوين سريعة ====
+colorRsi(val) => val >= 70 ? color.red : val <= 30 ? color.green : color.gray
+colorAdx(val) => val > 20 ? color.green : color.gray
+colorMacd(val) => val ? color.green : color.red
+colorStoch(val) => val < 20 ? color.green : val > 80 ? color.red : color.gray
+arrowUpDown(val1, val2) =>
+    showArrows ? (val1 > val2 ? "↗️" : val1 < val2 ? "↘️" : "⬅️") : ""
+
+// ==== ملاحظات ذكية حسب المؤشر ====
+rsiNote   = rsi < 30 ? "قوة شرائية" : rsi > 70 ? "تشبع بيعي" : "زخم معتدل"
+macdNote  = macdLine > signalLine ? "إيجابي" : "سلبي"
+adxNote   = adx > 20 ? "ترند قوي" : "ترند ضعيف"
+stochNote = k < 20 ? "قاع محتمل" : k > 80 ? "قمة محتملة" : "حركة جانبية"
+
+// ==== رسم المؤشرات ====
+plot(ema13,  color=color.yellow,  linewidth=2, title="EMA13")
+plot(ema30,  color=color.fuchsia, linewidth=2, title="EMA30")
+plot(ema72,  color=color.teal,    linewidth=2, title="EMA72")
+plot(ema144, color=color.orange,  linewidth=2, title="EMA144")
+plot(ema288, color=color.red,     linewidth=3, title="EMA288")
+
+plot(vwap, title="VWAP", color=color.aqua, linewidth=2, style=plot.style_line)
+
+plot(bbUpper, title="BB Upper", color=color.orange, linewidth=1)
+plot(bbBasis, title="BB Basis", color=color.silver, linewidth=1)
+plot(bbLower, title="BB Lower", color=color.aqua, linewidth=1)
+
+plot(tenkan,  title="Tenkan", color=color.navy)
+plot(kijun,   title="Kijun",  color=color.fuchsia)
+plot(senkouA, title="SenkouA", color=color.green)
+plot(senkouB, title="SenkouB", color=color.red)
+
+plot(not na(resistance) ? resistance : na, "المقاومة", color=color.red, style=plot.style_stepline)
+plot(not na(support) ? support : na, "الدعم", color=color.green, style=plot.style_stepline)
+
+// ==== جدول كامل صغير ====
+colCount = 5 + (showVolume ? 1 : 0) + (showATR ? 1 : 0)
+var table dash = table.new(tableLocation, colCount, 28, border_width=1)
+
+if barstate.islast and showTable
+    table.clear(dash, 0, 0)
+    // العناوين
+    table.cell(dash, 0, 0, "المؤشر", bgcolor=color.silver, text_color=color.black, text_size=fontSize)
+    table.cell(dash, 1, 0, "القيمة", bgcolor=color.silver, text_color=color.black, text_size=fontSize)
+    table.cell(dash, 2, 0, "الحالة/مفتاح", bgcolor=color.silver, text_color=color.black, text_size=fontSize)
+    table.cell(dash, 3, 0, "ملاحظة", bgcolor=color.silver, text_color=color.black, text_size=fontSize)
+    table.cell(dash, 4, 0, "اتجاه", bgcolor=color.silver, text_color=color.black, text_size=fontSize)
+    if showVolume
+        table.cell(dash, 5, 0, "فوليوم", bgcolor=color.silver, text_color=color.black, text_size=fontSize)
+    if showATR
+        table.cell(dash, showVolume ? 6 : 5, 0, "ATR", bgcolor=color.silver, text_color=color.black, text_size=fontSize)
+
+    // أسماء المؤشرات
+    table.cell(dash, 0,  1, "EMA13",   text_color=color.yellow,   text_size=fontSize)
+    table.cell(dash, 0,  2, "EMA30",   text_color=color.fuchsia,  text_size=fontSize)
+    table.cell(dash, 0,  3, "EMA72",   text_color=color.teal,     text_size=fontSize)
+    table.cell(dash, 0,  4, "EMA144",  text_color=color.orange,   text_size=fontSize)
+    table.cell(dash, 0,  5, "EMA288",  text_color=color.red,      text_size=fontSize)
+    table.cell(dash, 0,  6, "VWAP",    text_color=color.aqua,     text_size=fontSize)
+    table.cell(dash, 0,  7, "BB Upper",text_color=color.orange,   text_size=fontSize)
+    table.cell(dash, 0,  8, "BB Basis",text_color=color.silver,   text_size=fontSize)
+    table.cell(dash, 0,  9, "BB Lower",text_color=color.aqua,     text_size=fontSize)
+    table.cell(dash, 0, 10, "Tenkan",  text_color=color.navy,     text_size=fontSize)
+    table.cell(dash, 0, 11, "Kijun",   text_color=color.fuchsia,  text_size=fontSize)
+    table.cell(dash, 0, 12, "SenkouA", text_color=color.green,    text_size=fontSize)
+    table.cell(dash, 0, 13, "SenkouB", text_color=color.red,      text_size=fontSize)
+    table.cell(dash, 0, 14, "RSI",     text_color=color.green,    text_size=fontSize)
+    table.cell(dash, 0, 15, "MACD",    text_color=color.blue,     text_size=fontSize)
+    table.cell(dash, 0, 16, "ADX",     text_color=color.purple,   text_size=fontSize)
+    table.cell(dash, 0, 17, "Stoch K", text_color=color.aqua,     text_size=fontSize)
+    table.cell(dash, 0, 18, "دعم",     text_color=color.green,    text_size=fontSize)
+    table.cell(dash, 0, 19, "مقاومة",  text_color=color.red,      text_size=fontSize)
+    table.cell(dash, 0, 20, "إشارة",   text_color=color.black,    bgcolor=color.silver, text_size=fontSize)
+    table.cell(dash, 0, 21, "Fib 0%",    text_color=color.gray,    text_size=fontSize)
+    table.cell(dash, 0, 22, "Fib 23.6%", text_color=color.yellow,  text_size=fontSize)
+    table.cell(dash, 0, 23, "Fib 38.2%", text_color=color.teal,    text_size=fontSize)
+    table.cell(dash, 0, 24, "Fib 50%",   text_color=color.fuchsia, text_size=fontSize)
+    table.cell(dash, 0, 25, "Fib 61.8%", text_color=color.green,   text_size=fontSize)
+    table.cell(dash, 0, 26, "Fib 78.6%", text_color=color.orange,  text_size=fontSize)
+    table.cell(dash, 0, 27, "Fib 100%",  text_color=color.red,     text_size=fontSize)
+
+    // القيم اللحظية
+    table.cell(dash, 1,  1, str.tostring(ema13, "#.##"), text_color=color.yellow, text_size=fontSize)
+    table.cell(dash, 1,  2, str.tostring(ema30, "#.##"), text_color=color.fuchsia, text_size=fontSize)
+    table.cell(dash, 1,  3, str.tostring(ema72, "#.##"), text_color=color.teal, text_size=fontSize)
+    table.cell(dash, 1,  4, str.tostring(ema144, "#.##"), text_color=color.orange, text_size=fontSize)
+    table.cell(dash, 1,  5, str.tostring(ema288, "#.##"), text_color=color.red, text_size=fontSize)
+    table.cell(dash, 1,  6, str.tostring(vwap, "#.##"), text_color=color.aqua, text_size=fontSize)
+    table.cell(dash, 1,  7, str.tostring(bbUpper, "#.##"), text_color=color.orange, text_size=fontSize)
+    table.cell(dash, 1,  8, str.tostring(bbBasis, "#.##"), text_color=color.silver, text_size=fontSize)
+    table.cell(dash, 1,  9, str.tostring(bbLower, "#.##"), text_color=color.aqua, text_size=fontSize)
+    table.cell(dash, 1, 10, str.tostring(tenkan, "#.##"), text_color=color.navy, text_size=fontSize)
+    table.cell(dash, 1, 11, str.tostring(kijun, "#.##"), text_color=color.fuchsia, text_size=fontSize)
+    table.cell(dash, 1, 12, str.tostring(senkouA, "#.##"), text_color=color.green, text_size=fontSize)
+    table.cell(dash, 1, 13, str.tostring(senkouB, "#.##"), text_color=color.red, text_size=fontSize)
+    table.cell(dash, 1, 14, str.tostring(rsi, "#.##"), text_color=colorRsi(rsi), text_size=fontSize)
+    table.cell(dash, 1, 15, str.tostring(macdLine, "#.##"), text_color=colorMacd(macdLine > signalLine), text_size=fontSize)
+    table.cell(dash, 1, 16, str.tostring(adx, "#.##"), text_color=colorAdx(adx), text_size=fontSize)
+    table.cell(dash, 1, 17, str.tostring(k, "#.##"), text_color=colorStoch(k), text_size=fontSize)
+    table.cell(dash, 1, 18, not na(support) ? str.tostring(support, "#.##") : "-", text_color=color.green, text_size=fontSize)
+    table.cell(dash, 1, 19, not na(resistance) ? str.tostring(resistance, "#.##") : "-", text_color=color.red, text_size=fontSize)
+    table.cell(dash, 1, 20, "-", text_color=color.black, bgcolor=color.silver, text_size=fontSize)
+    table.cell(dash, 1, 21, not na(fib0)   ? str.tostring(fib0,   "#.##") : "-", text_color=color.gray,    text_size=fontSize)
+    table.cell(dash, 1, 22, not na(fib236) ? str.tostring(fib236, "#.##") : "-", text_color=color.yellow,  text_size=fontSize)
+    table.cell(dash, 1, 23, not na(fib382) ? str.tostring(fib382, "#.##") : "-", text_color=color.teal,    text_size=fontSize)
+    table.cell(dash, 1, 24, not na(fib500) ? str.tostring(fib500, "#.##") : "-", text_color=color.fuchsia, text_size=fontSize)
+    table.cell(dash, 1, 25, not na(fib618) ? str.tostring(fib618, "#.##") : "-", text_color=color.green,   text_size=fontSize)
+    table.cell(dash, 1, 26, not na(fib786) ? str.tostring(fib786, "#.##") : "-", text_color=color.orange,  text_size=fontSize)
+    table.cell(dash, 1, 27, not na(fib1)   ? str.tostring(fib1,   "#.##") : "-", text_color=color.red,     text_size=fontSize)
+
+    // الحالات الذكية
+    table.cell(dash, 2, 14, rsi < 30 ? "تشبع شراء" : rsi > 70 ? "تشبع بيع" : "طبيعي", bgcolor=colorRsi(rsi), text_size=fontSize)
+    table.cell(dash, 2, 15, macdLine > signalLine ? "إيجابي" : "سلبي", bgcolor=colorMacd(macdLine > signalLine), text_size=fontSize)
+    table.cell(dash, 2, 16, adx > 20 ? "قوي" : "ضعيف", bgcolor=colorAdx(adx), text_size=fontSize)
+    table.cell(dash, 2, 17, k < 20 ? "تشبع شراء" : k > 80 ? "تشبع بيع" : "طبيعي", bgcolor=colorStoch(k), text_size=fontSize)
+    table.cell(dash, 2, 18, "دعم", bgcolor=color.green, text_size=fontSize)
+    table.cell(dash, 2, 19, "مقاومة", bgcolor=color.red, text_size=fontSize)
+
+    // ملاحظات
+    table.cell(dash, 3, 14, rsiNote, text_color=colorRsi(rsi), text_size=fontSize)
+    table.cell(dash, 3, 15, macdNote, text_color=colorMacd(macdLine > signalLine), text_size=fontSize)
+    table.cell(dash, 3, 16, adxNote, text_color=colorAdx(adx), text_size=fontSize)
+    table.cell(dash, 3, 17, stochNote, text_color=colorStoch(k), text_size=fontSize)
+    table.cell(dash, 3, 18, "دعم فني", text_color=color.green, text_size=fontSize)
+    table.cell(dash, 3, 19, "مقاومة فنية", text_color=color.red, text_size=fontSize)
+
+    // الأسهم الاتجاهية
+    table.cell(dash, 4,  1, arrowUpDown(ema13, ema13[1]), text_size=fontSize)
+    table.cell(dash, 4,  2, arrowUpDown(ema30, ema30[1]), text_size=fontSize)
+    table.cell(dash, 4,  3, arrowUpDown(ema72, ema72[1]), text_size=fontSize)
+    table.cell(dash, 4,  4, arrowUpDown(ema144, ema144[1]), text_size=fontSize)
+    table.cell(dash, 4,  5, arrowUpDown(ema288, ema288[1]), text_size=fontSize)
+    table.cell(dash, 4,  6, arrowUpDown(vwap, vwap[1]), text_size=fontSize)
+    table.cell(dash, 4,  7, arrowUpDown(bbUpper, bbUpper[1]), text_size=fontSize)
+    table.cell(dash, 4,  8, arrowUpDown(bbBasis, bbBasis[1]), text_size=fontSize)
+    table.cell(dash, 4,  9, arrowUpDown(bbLower, bbLower[1]), text_size=fontSize)
+    table.cell(dash, 4, 10, arrowUpDown(tenkan, tenkan[1]), text_size=fontSize)
+    table.cell(dash, 4, 11, arrowUpDown(kijun, kijun[1]), text_size=fontSize)
+    table.cell(dash, 4, 12, arrowUpDown(senkouA, senkouA[1]), text_size=fontSize)
+    table.cell(dash, 4, 13, arrowUpDown(senkouB, senkouB[1]), text_size=fontSize)
+    table.cell(dash, 4, 14, arrowUpDown(rsi, rsi[1]), text_size=fontSize)
+    table.cell(dash, 4, 15, arrowUpDown(macdLine, signalLine), text_size=fontSize)
+    table.cell(dash, 4, 16, arrowUpDown(adx, adx[1]), text_size=fontSize)
+    table.cell(dash, 4, 17, arrowUpDown(k, k[1]), text_size=fontSize)
+    table.cell(dash, 4, 18, arrowUpDown(support, support[1]), text_size=fontSize)
+    table.cell(dash, 4, 19, arrowUpDown(resistance, resistance[1]), text_size=fontSize)
+
+    // فوليوم وATR حسب التفعيل
+    if showVolume
+        for i = 1 to 27
+            table.cell(dash, 5, i, str.tostring(volume, "#,###"), text_color=color.silver, text_size=fontSize)
+    if showATR
+        for i = 1 to 27
+            table.cell(dash, showVolume ? 6 : 5, i, str.tostring(atr, "#.###"), text_color=color.navy, text_size=fontSize)

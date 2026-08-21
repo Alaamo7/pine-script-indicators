@@ -1,0 +1,133 @@
+//@version=6
+indicator("Multi Trader Indicator with Legend + MACD", shorttitle="MTI (Legend+MACD)", overlay=true, max_lines_count=20)
+
+// ===== User Type Selection =====
+user_type = input.string(title="نوع المتداول (User Type)", defval="Scalper", options=["Scalper", "Day Trader", "Swing Trader", "Investor"])
+
+// ===== Settings per User Type =====
+fastLen = switch user_type
+    "Scalper" => 5
+    "Day Trader" => 9
+    "Swing Trader" => 20
+    => 50
+
+slowLen = switch user_type
+    "Scalper" => 21
+    "Day Trader" => 50
+    "Swing Trader" => 100
+    => 200
+
+rsiLen = switch user_type
+    "Scalper" => 7
+    "Day Trader" => 14
+    "Swing Trader" => 20
+    => 30
+
+rsiOB = switch user_type
+    "Scalper" => 80
+    "Day Trader" => 70
+    "Swing Trader" => 68
+    => 65
+
+rsiOS = switch user_type
+    "Scalper" => 20
+    "Day Trader" => 30
+    "Swing Trader" => 32
+    => 35
+
+macd_fast = switch user_type
+    "Scalper" => 6
+    "Day Trader" => 12
+    "Swing Trader" => 12
+    => 12
+
+macd_slow = switch user_type
+    "Scalper" => 13
+    "Day Trader" => 26
+    "Swing Trader" => 26
+    => 26
+
+macd_signal = switch user_type
+    "Scalper" => 5
+    "Day Trader" => 9
+    "Swing Trader" => 9
+    => 9
+
+// ===== Define colors =====
+color_fast_ma = color.blue
+color_slow_ma = color.orange
+color_rsi_ob_bg = color.new(color.red, 80)
+color_rsi_os_bg = color.new(color.green, 80)
+color_support = color.green
+color_resistance = color.red
+color_buy_signal = color.green
+color_sell_signal = color.red
+color_macd_buy = color.lime
+color_macd_sell = color.fuchsia
+
+// ===== Indicators =====
+ma_fast = ta.sma(close, fastLen)
+ma_slow = ta.sma(close, slowLen)
+rsi = ta.rsi(close, rsiLen)
+[s_macd, s_signal, s_hist] = ta.macd(close, macd_fast, macd_slow, macd_signal)
+
+// ===== Plot Moving Averages =====
+plot(ma_fast, color=color_fast_ma, linewidth=2, title="Fast MA")
+plot(ma_slow, color=color_slow_ma, linewidth=2, title="Slow MA")
+
+// ===== RSI Zones Background Color =====
+bgcolor(rsi > rsiOB ? color_rsi_ob_bg : na, title="RSI Overbought BG")
+bgcolor(rsi < rsiOS ? color_rsi_os_bg : na, title="RSI Oversold BG")
+
+// ===== Support & Resistance =====
+sr_len = 50
+support = ta.lowest(low, sr_len)
+resistance = ta.highest(high, sr_len)
+plot(support, color=color_support, style=plot.style_linebr, linewidth=1, title="Support")
+plot(resistance, color=color_resistance, style=plot.style_linebr, linewidth=1, title="Resistance")
+
+// ===== Buy/Sell Conditions =====
+buySignal = ta.crossover(ma_fast, ma_slow) and rsi < rsiOB
+sellSignal = ta.crossunder(ma_fast, ma_slow) and rsi > rsiOS
+
+// ===== MACD Buy/Sell Signals =====
+macdBuy = ta.crossover(s_macd, s_signal)
+macdSell = ta.crossunder(s_macd, s_signal)
+
+// ===== Plot Buy/Sell Signals =====
+plotshape(buySignal, title="Buy Signal", location=location.belowbar, color=color_buy_signal, style=shape.triangleup, size=size.small, text="شراء")
+plotshape(sellSignal, title="Sell Signal", location=location.abovebar, color=color_sell_signal, style=shape.triangledown, size=size.small, text="بيع")
+plotshape(macdBuy, title="MACD Buy", location=location.belowbar, color=color_macd_buy, style=shape.circle, size=size.tiny, text="MACD↑")
+plotshape(macdSell, title="MACD Sell", location=location.abovebar, color=color_macd_sell, style=shape.circle, size=size.tiny, text="MACD↓")
+
+// ===== الدليل المفتاحي (Legend) =====
+var table legendTable = table.new(position.top_right, 2, 11, border_width = 1)
+
+_f_add_legend_entry(tbl, rowIndex, symbolText, symbolColor, descriptionText, _textSize = size.tiny) =>
+    tbl.cell(0, rowIndex, text = symbolText, text_color = symbolColor, text_size = _textSize)
+    tbl.cell(1, rowIndex, text = descriptionText, text_size = _textSize, text_halign = text.align_left)
+
+if barstate.islast
+    legendTable.clear(start_row = 0, start_column = 0)
+    legendTable.cell(0, 0, text="📊 دليل المؤشر", text_halign=text.align_center, bgcolor=color.new(color.gray, 80), text_size=size.small)
+    
+    user_type_ar = user_type == "Scalper" ? "مضارب" : user_type == "Day Trader" ? "مضارب يومي" : user_type == "Swing Trader" ? "متداول متأرجح" : "مستثمر"
+    
+    legendTable.cell(0, 1, text="نوع المتداول:", text_color=color.black, text_size=size.tiny, text_halign=text.align_right)
+    legendTable.cell(1, 1, text=user_type_ar, text_color=color.black, text_size=size.tiny, text_halign=text.align_left)
+
+    _f_add_legend_entry(legendTable, 2, "─", color_fast_ma, "متوسط سريع (" + str.tostring(fastLen) + ")")
+    _f_add_legend_entry(legendTable, 3, "─", color_slow_ma, "متوسط بطيء (" + str.tostring(slowLen) + ")")
+    _f_add_legend_entry(legendTable, 4, "■", color_rsi_ob_bg, "خلفية تشبع شرائي (RSI > " + str.tostring(rsiOB) + ")")
+    _f_add_legend_entry(legendTable, 5, "■", color_rsi_os_bg, "خلفية تشبع بيعي (RSI < " + str.tostring(rsiOS) + ")")
+    _f_add_legend_entry(legendTable, 6, "─", color_support, "دعم (أدنى قاع لـ " + str.tostring(sr_len) + " شمعة)")
+    _f_add_legend_entry(legendTable, 7, "─", color_resistance, "مقاومة (أعلى قمة لـ " + str.tostring(sr_len) + " شمعة)")
+    _f_add_legend_entry(legendTable, 8, "▲", color_buy_signal, "إشارة شراء")
+    _f_add_legend_entry(legendTable, 9, "▼", color_sell_signal, "إشارة بيع")
+    _f_add_legend_entry(legendTable, 10, "●", color_macd_buy, "تقاطع MACD للشراء / ● وردية للبيع")
+
+// ===== تنبيهات (اختياري) =====
+// alertcondition(buySignal, title="Buy Signal Alert", message="{{ticker}} - New Buy Signal (" + user_type + ")")
+// alertcondition(sellSignal, title="Sell Signal Alert", message="{{ticker}} - New Sell Signal (" + user_type + ")")
+// alertcondition(macdBuy, title="MACD Buy Alert", message="{{ticker}} - MACD Buy Crossover")
+// alertcondition(macdSell, title="MACD Sell Alert", message="{{ticker}} - MACD Sell Crossunder")

@@ -1,0 +1,135 @@
+//@version=6
+indicator("EGX Pro Indicator with Stats - Final Unified Version", overlay=true, max_bars_back=5000)
+
+// === واجهة تحكم رسومية ===
+var table gui = table.new(position.top_right, 1, 1)
+if bar_index == 1
+    table.cell(gui, 0, 0, "لوحة تحكم EGX Pro", text_color=color.white, bgcolor=color.blue, text_size=size.normal)
+
+// === إعدادات الإدخال (بدلاً من الأزرار) ===
+show_ema = input.bool(true, title="إظهار EMA")
+show_volume_analysis = input.bool(true, title="إظهار تحليل الحجم")
+show_zones = input.bool(true, title="إظهار مناطق العرض والطلب")
+show_stats = input.bool(true, title="إظهار الإحصائيات")
+reset_stats = input.bool(false, title="إعادة تعيين الإحصائيات")
+save_stats_snapshot = input.bool(false, title="حفظ لقطة إحصائيات")
+clear_boxes = input.bool(false, title="مسح الصناديق")
+
+toggle_coloring = input.bool(true, title="تفعيل تلوين الخلفية")
+toggle_colored_bars = input.bool(false, title="تفعيل تلوين الأعمدة بدلاً من الخلفية")
+
+ema_color = input.color(color.aqua, title="لون EMA")
+volume_up_color = input.color(color.green, title="لون التجميع")
+volume_down_color = input.color(color.red, title="لون التصريف")
+demand_color = input.color(color.new(color.green, 85), title="لون مناطق الطلب")
+supply_color = input.color(color.new(color.red, 85), title="لون مناطق العرض")
+signal_spacing = input.int(10, minval=1, title="عدد الشموع بين كل تلوين")
+signal_opacity = input.int(90, minval=0, maxval=100, title="شفافية التلوين")
+
+// === EMA
+ema9 = ta.ema(close, 9)
+ema21 = ta.ema(close, 21)
+plot(show_ema ? ema9 : na, title="EMA 9", color=ema_color)
+plot(show_ema ? ema21 : na, title="EMA 21", color=color.orange)
+
+// === تحليل الحجم
+vol_ma = ta.sma(volume, 20)
+buy_signal = close > open and volume > vol_ma
+sell_signal = close < open and volume > vol_ma
+
+volume_bg = toggle_coloring and show_volume_analysis and buy_signal and bar_index % signal_spacing == 0 ? color.new(volume_up_color, signal_opacity) : toggle_coloring and show_volume_analysis and sell_signal and bar_index % signal_spacing == 0 ? color.new(volume_down_color, signal_opacity) : na
+
+bgcolor(toggle_colored_bars ? na : volume_bg)
+barcolor(toggle_colored_bars ? volume_bg : na)
+
+plotshape(show_volume_analysis and buy_signal ? low : na, style=shape.triangleup, location=location.belowbar, color=volume_up_color, title="تجميع")
+plotshape(show_volume_analysis and sell_signal ? high : na, style=shape.triangledown, location=location.abovebar, color=volume_down_color, title="تصريف")
+
+// === مناطق الطلب والعرض (Box)
+var box[] demand_boxes = array.new_box()
+var box[] supply_boxes = array.new_box()
+var float last_demand_level = na
+var float last_supply_level = na
+
+if clear_boxes
+    for i = 0 to array.size(demand_boxes) - 1
+        box.delete(array.get(demand_boxes, i))
+    array.clear(demand_boxes)
+    for i = 0 to array.size(supply_boxes) - 1
+        box.delete(array.get(supply_boxes, i))
+    array.clear(supply_boxes)
+
+pivot_demand = ta.pivotlow(low, 5, 5)
+pivot_supply = ta.pivothigh(high, 5, 5)
+
+if bar_index > 5 and show_zones and not na(pivot_demand) and low != last_demand_level
+    box db = box.new(left=bar_index - 5, right=bar_index, top=high, bottom=low, border_color=color.green, bgcolor=demand_color)
+    array.push(demand_boxes, db)
+    last_demand_level := low
+    if array.size(demand_boxes) > 10
+        box.delete(array.shift(demand_boxes))
+
+if bar_index > 5 and show_zones and not na(pivot_supply) and high != last_supply_level
+    box sb = box.new(left=bar_index - 5, right=bar_index, top=high, bottom=low, border_color=color.red, bgcolor=supply_color)
+    array.push(supply_boxes, sb)
+    last_supply_level := high
+    if array.size(supply_boxes) > 10
+        box.delete(array.shift(supply_boxes))
+
+// === إحصائيات
+var int buy_count = na
+var int sell_count = na
+var int total_bars = na
+var int last_snapshot_index = na
+var label snapshotLabel = na
+var label statsLabel = na
+
+if na(buy_count) or reset_stats
+    buy_count := 0
+    sell_count := 0
+    total_bars := 0
+
+if bar_index > 20
+    if buy_signal
+        buy_count += 1
+    if sell_signal
+        sell_count += 1
+    total_bars += 1
+
+buy_ratio = total_bars > 0 ? (buy_count * 100 / total_bars) : na
+sell_ratio = total_bars > 0 ? (sell_count * 100 / total_bars) : na
+
+if show_stats
+    label.delete(statsLabel)
+    statsLabel := label.new(
+      x=bar_index,
+      y=high,
+      text="📊 إحصائيات إشارات الحجم:\n🔼 شموع تجميع (سعر طالع + حجم كبير): " + str.tostring(buy_count) + " (" + str.tostring(buy_ratio, "#.##") + "%)" +
+           "\n🔽 شموع تصريف (سعر نازل + حجم كبير): " + str.tostring(sell_count) + " (" + str.tostring(sell_ratio, "#.##") + "%)",
+      style=label.style_label_left,
+      yloc=yloc.abovebar,
+      color=color.black,
+      textcolor=color.white,
+      size=size.small)
+
+if save_stats_snapshot and bar_index != last_snapshot_index
+    label.delete(snapshotLabel)
+    snapshotLabel := label.new(
+      x=bar_index,
+      y=low - ta.atr(14),
+      text="📊 لقطة محفوظة لإشارات الحجم:\n🔼 تجميع: " + str.tostring(buy_count) + " (" + str.tostring(buy_ratio, "#.##") + "%)" +
+           "\n🔽 تصريف: " + str.tostring(sell_count) + " (" + str.tostring(sell_ratio, "#.##") + "%)",
+      style=label.style_label_right,
+      yloc=yloc.price,
+      color=color.navy,
+      textcolor=color.white,
+      size=size.small)
+    last_snapshot_index := bar_index
+    save_stats_snapshot := false
+
+plot(show_stats ? buy_ratio : na, title="نسبة التجميع", color=color.green, style=plot.style_columns)
+plot(show_stats ? sell_ratio : na, title="نسبة التصريف", color=color.red, style=plot.style_columns)
+
+// === تنبيهات
+alertcondition(buy_signal, title="تجميع", message="إشارة تجميع على السهم")
+alertcondition(sell_signal, title="تصريف", message="إشارة تصريف على السهم")

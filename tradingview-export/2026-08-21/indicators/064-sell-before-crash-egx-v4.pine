@@ -1,0 +1,91 @@
+//@version=6
+indicator("Sell Before Crash (EGX) v4 – جدول شامل فلاتر + دليل مفتاحي", overlay=true, max_labels_count=500, max_lines_count=500)
+
+// إعدادات الفلاتر
+smaLen = input.int(50, "SMA Length")
+emaLen = input.int(21, "EMA Length")
+rsiLen = input.int(14, "RSI Length")
+adxLen = input.int(14, "ADX Length")
+rsiThreshold = input.int(35, "RSI Threshold For Weakness")
+adxThreshold = input.int(20, "ADX Threshold For Weak Trend")
+volumeSpike = input.float(1.8, "Volume Spike Multiplier")
+
+// حساب المؤشرات
+sma = ta.sma(close, smaLen)
+ema = ta.ema(close, emaLen)
+rsi = ta.rsi(close, rsiLen)
+[plusDI, minusDI, adx] = ta.dmi(adxLen, 14)
+volMA = ta.sma(volume, 20)
+volCondition = volume > volMA * volumeSpike
+
+// فلاتر الهبوط الحاد
+bearishBreak = close < sma and close < ema and close < close[1]
+rsiWeak = rsi < rsiThreshold
+adxWeak = adx < adxThreshold
+dmiBear = minusDI > plusDI
+supportBreak = close < ta.lowest(close, 10)
+bearishCandle = close < open and (open - close) / close > 0.01
+
+// إشارات البيع
+sellSignal = bearishBreak and rsiWeak and dmiBear and adxWeak and supportBreak and bearishCandle and volCondition
+
+plotshape(sellSignal, style=shape.triangleup, location=location.abovebar, color=color.red, size=size.large, title="Sell Alert", text="🚨 SELL")
+bgcolor(sellSignal ? color.new(color.red, 90) : na)
+
+alertcondition(sellSignal, title="Sell Before Crash Alert", message="🚨🚨 احتمال انهيار قادم! تم تفعيل إشارة بيع حمراء بقوة على الشارت.")
+
+plot(sma, color=color.orange, title="SMA")
+plot(ema, color=color.blue, title="EMA")
+
+// دالة فحص تحقق الشرط
+check(cond) =>
+    cond ? "✅" : "❌"
+
+// =========== جدول شامل: حالة الفلاتر + الدليل المفتاحي ============
+var table dashboard = table.new(position.bottom_right, 3, 9, border_width=1)
+
+if barstate.islast
+    // عنوان الجدول
+    table.cell(dashboard, 0, 0, "فلتر", text_color=color.white, bgcolor=color.blue)
+    table.cell(dashboard, 1, 0, "الحالة", text_color=color.white, bgcolor=color.blue)
+    table.cell(dashboard, 2, 0, "وصف الفلتر", text_color=color.white, bgcolor=color.blue)
+
+    // كسر المتوسطات
+    table.cell(dashboard, 0, 1, "SMA + EMA", text_color=color.orange)
+    table.cell(dashboard, 1, 1, check(bearishBreak), text_color=bearishBreak ? color.green : color.red)
+    table.cell(dashboard, 2, 1, "كسر كل المتوسطات لأسفل", text_color=color.orange)
+    
+    // RSI
+    table.cell(dashboard, 0, 2, "RSI < 35", text_color=color.blue)
+    table.cell(dashboard, 1, 2, check(rsiWeak), text_color=rsiWeak ? color.green : color.red)
+    table.cell(dashboard, 2, 2, "تشبع بيع وضعف مشترين", text_color=color.blue)
+    
+    // ADX
+    table.cell(dashboard, 0, 3, "ADX < 20", text_color=color.purple)
+    table.cell(dashboard, 1, 3, check(adxWeak), text_color=adxWeak ? color.green : color.red)
+    table.cell(dashboard, 2, 3, "اتجاه ضعيف", text_color=color.purple)
+    
+    // -DI أعلى
+    table.cell(dashboard, 0, 4, "-DI > +DI", text_color=color.red)
+    table.cell(dashboard, 1, 4, check(dmiBear), text_color=dmiBear ? color.green : color.red)
+    table.cell(dashboard, 2, 4, "سيطرة بائعين", text_color=color.red)
+    
+    // دعم 10 شمعات
+    table.cell(dashboard, 0, 5, "دعم 10 شمعات", text_color=color.yellow)
+    table.cell(dashboard, 1, 5, check(supportBreak), text_color=supportBreak ? color.green : color.red)
+    table.cell(dashboard, 2, 5, "كسر دعم قصير", text_color=color.yellow)
+    
+    // حجم تداول ضخم
+    table.cell(dashboard, 0, 6, "حجم تداول ضخم", text_color=color.purple)
+    table.cell(dashboard, 1, 6, check(volCondition), text_color=volCondition ? color.green : color.red)
+    table.cell(dashboard, 2, 6, "تصريف مؤسساتي", text_color=color.purple)
+    
+    // شمعة هبوطية
+    table.cell(dashboard, 0, 7, "شمعة هبوطية قوية", text_color=color.fuchsia)
+    table.cell(dashboard, 1, 7, check(bearishCandle), text_color=bearishCandle ? color.green : color.red)
+    table.cell(dashboard, 2, 7, "ضغط بيعي واضح", text_color=color.fuchsia)
+    
+    // تحذير نهائي
+    table.cell(dashboard, 0, 8, "⚠️ التحذير", text_color=color.red, bgcolor=color.yellow)
+    table.cell(dashboard, 1, 8, sellSignal ? "SELL ALERT" : "-", text_color=sellSignal ? color.red : color.gray, bgcolor=sellSignal ? color.yellow : na)
+    table.cell(dashboard, 2, 8, "اجتماع كل الفلاتر = تحذير بيع قبل الانهيار", text_color=color.red, bgcolor=color.yellow)

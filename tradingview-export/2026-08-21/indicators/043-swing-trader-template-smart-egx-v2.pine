@@ -1,0 +1,65 @@
+//@version=5
+indicator("Swing Trader Template - Smart EGX v2", overlay=true, max_lines_count=500, max_labels_count=500)
+
+// === إعدادات الظهور ===
+showRSI     = input.bool(true, title="📈 إظهار RSI")
+showVolume  = input.bool(false, title="📊 إظهار الحجم")
+showSupportResistance = input.bool(true, title="📌 إظهار الدعم والمقاومة اليدوية")
+
+// === المتوسطات المتحركة ===
+ema9    = ta.ema(close, 9)
+ema21   = ta.ema(close, 21)
+sma50   = ta.sma(close, 50)
+sma200  = ta.sma(close, 200)
+
+plot(ema9, color=color.orange, linewidth=1, title="EMA 9")
+plot(ema21, color=color.blue, linewidth=1, title="EMA 21")
+plot(sma50, color=color.gray, linewidth=1, title="SMA 50")
+plot(sma200, color=color.black, linewidth=1, title="SMA 200")
+
+// === مؤشر RSI ===
+rsi = ta.rsi(close, 14)
+rsiOverbought = 70
+rsiOversold = 30
+
+hline(rsiOverbought, "RSI Overbought", color=color.red)
+hline(50, "RSI Mid", color=color.gray)
+hline(rsiOversold, "RSI Oversold", color=color.green)
+plot(showRSI ? rsi : na, title="RSI", color=color.purple, linewidth=2, display=display.pane)
+
+// === الحجم ===
+plot(showVolume ? volume : na, title="الحجم", color=color.teal, style=plot.style_columns, display=display.pane)
+
+// === دعم ومقاومة يدوي ===
+resistance = input.float(na, title="مستوى المقاومة (اختياري)")
+support    = input.float(na, title="مستوى الدعم (اختياري)")
+
+plot(showSupportResistance and resistance ? resistance : na, title="المقاومة", color=color.red, linewidth=2, style=plot.style_line)
+plot(showSupportResistance and support ? support : na, title="الدعم", color=color.green, linewidth=2, style=plot.style_line)
+
+// === اتجاه السهم ===
+trend_up   = ema9 > ema21 and ema21 > sma50
+trend_down = ema9 < ema21 and ema21 < sma50
+
+bgcolor(trend_up ? color.new(color.green, 85) : na, title="اتجاه صاعد")
+bgcolor(trend_down ? color.new(color.red, 85) : na, title="اتجاه هابط")
+barcolor(trend_up ? color.green : trend_down ? color.red : na)
+
+// === إشارة شراء — تقاطع إيجابي + RSI < 60 ===
+buySignal = ta.crossover(ema9, ema21) and rsi < 60
+plotshape(buySignal, title="إشارة شراء", location=location.belowbar, color=color.green, style=shape.labelup, text="BUY")
+
+// === تنبيه للإشارة ===
+alertcondition(buySignal, title="تنبيه إشارة شراء", message="📢 إشارة شراء على الشارت - تقاطع EMA مع RSI")
+
+// === الدليل المفتاحي للألوان (داخل التعليقات) ===
+// EMA 9: برتقالي
+// EMA 21: أزرق
+// SMA 50: رمادي
+// SMA 200: أسود
+// RSI: بنفسجي
+// مقاومة: خط أحمر
+// دعم: خط أخضر
+// خلفية خضراء: اتجاه صاعد
+// خلفية حمراء: اتجاه هابط
+// BUY: إشارة دخول محتملة

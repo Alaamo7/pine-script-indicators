@@ -1,0 +1,86 @@
+//@version=6
+indicator("Smart Technical Pro v1", overlay=true)
+
+// واجهة التحكم
+show_VWAP = input.bool(true, "إظهار VWAP")
+show_OBV = input.bool(true, "إظهار OBV")
+show_RSI = input.bool(true, "إظهار RSI لتأكيد الصفقات")
+show_MACD = input.bool(false, "إظهار MACD لتأكيد الصفقات")
+show_EMA = input.bool(true, "إظهار المتوسطات المتحركة")
+show_SD_Zones = input.bool(true, "كشف مناطق الطلب والعرض المحسنة")
+pivot_lookback = input.int(5, "الشموع قبل/بعد نقطة الارتداد", minval=2)
+zone_extension_bars = input.int(20, "امتداد المنطقة (عدد الشموع)", minval=5)
+zone_width_factor = input.float(0.005, "عامل عرض المنطقة (٪ من السعر)", minval=0.001, step=0.001)
+show_Volume_Analysis = input.bool(true, "تحليل حجم التداول الذكي")
+show_Timeframe_Hint = input.bool(true, "إظهار توصية الإطار الزمني")
+
+// VWAP
+vwap = ta.vwap(hlc3)
+plot(show_VWAP ? vwap : na, title="VWAP", color=color.orange, linewidth=2)
+
+// OBV
+obv = ta.cum(close > close[1] ? volume : close < close[1] ? -volume : 0)
+plot(show_OBV ? obv : na, title="OBV", color=color.blue, linewidth=1, style=plot.style_line)
+
+// RSI
+rsi_val = ta.rsi(close, 14)
+plot(show_RSI ? rsi_val : na, title="RSI", color=color.fuchsia, display=display.pane)
+hline(show_RSI ? 70 : na, "RSI Overbought", color=color.red, linestyle=hline.style_dotted)
+hline(show_RSI ? 30 : na, "RSI Oversold", color=color.green, linestyle=hline.style_dotted)
+
+// MACD
+[macdLine, signalLine, hist] = ta.macd(close, 12, 26, 9)
+plot(show_MACD ? macdLine : na, color=color.teal, title="MACD Line")
+plot(show_MACD ? signalLine : na, color=color.red, title="Signal Line")
+plot(show_MACD ? hist : na, color=color.gray, title="MACD Histogram", style=plot.style_histogram)
+
+// المتوسطات المتحركة
+ema9 = ta.ema(close, 9)
+ema21 = ta.ema(close, 21)
+ema50 = ta.ema(close, 50)
+ema200 = ta.ema(close, 200)
+
+plot(show_EMA ? ema9 : na, color=color.new(color.aqua, 0), title="EMA 9", linewidth=1)
+plot(show_EMA ? ema21 : na, color=color.new(color.blue, 0), title="EMA 21", linewidth=1)
+plot(show_EMA ? ema50 : na, color=color.new(color.green, 0), title="EMA 50", linewidth=2)
+plot(show_EMA ? ema200 : na, color=color.new(color.red, 0), title="EMA 200", linewidth=2)
+
+// مناطق الطلب والعرض المحسنة
+var box demand_box = na
+var box supply_box = na
+var label last_demand_label = na
+var label last_supply_label = na
+
+if show_SD_Zones
+    is_pivot_low = ta.lowest(low[pivot_lookback], pivot_lookback + 1) == low[pivot_lookback] and
+                   ta.lowest(low, pivot_lookback + 1) == low[pivot_lookback]
+
+    is_pivot_high = ta.highest(high[pivot_lookback], pivot_lookback + 1) == high[pivot_lookback] and ta.highest(high, pivot_lookback + 1) == high[pivot_lookback]
+
+    // منطقة الطلب
+    if is_pivot_low and bar_index > pivot_lookback * 2
+        demand_level = low[pivot_lookback]
+        zone_height = demand_level * zone_width_factor
+        if not na(demand_box)
+            box.delete(demand_box)
+        demand_box := box.new(bar_index[pivot_lookback], demand_level - zone_height,
+                              bar_index[pivot_lookback] + zone_extension_bars, demand_level + zone_height,
+                              border_color=color.green, bgcolor=color.new(color.green, 90), xloc=xloc.bar_index)
+        if not na(last_demand_label)
+            label.delete(last_demand_label)
+        last_demand_label := label.new(bar_index[pivot_lookback], demand_level - zone_height * 2, "طلب",
+                                       color=color.new(color.green, 50), textcolor=color.white, size=size.tiny, xloc=xloc.bar_index)
+
+    // منطقة العرض
+    if is_pivot_high and bar_index > pivot_lookback * 2
+        supply_level = high[pivot_lookback]
+        zone_height = supply_level * zone_width_factor
+        if not na(supply_box)
+            box.delete(supply_box)
+        supply_box := box.new(bar_index[pivot_lookback], supply_level - zone_height,
+                              bar_index[pivot_lookback] + zone_extension_bars, supply_level + zone_height,
+                              border_color=color.red, bgcolor=color.new(color.red, 90), xloc=xloc.bar_index)
+        if not na(last_supply_label)
+            label.delete(last_supply_label)
+        last_supply_label := label.new(bar_index[pivot_lookback], supply_level + zone_height * 2, "عرض",
+                                       color=color.new(color.red, 50), textcolor=color.white, size=size.tiny, xloc=xloc.bar_index)

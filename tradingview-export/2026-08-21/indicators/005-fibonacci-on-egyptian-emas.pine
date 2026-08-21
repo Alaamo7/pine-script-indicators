@@ -1,0 +1,84 @@
+//@version=6
+indicator("Fibonacci on Egyptian EMAs | فيبوناتشي على المتوسطات المصرية", overlay=true, shorttitle="Fib EMAs Egypt")
+
+// ==== إعداد المتوسطات المصرية ====
+ema1_len = input.int(13, title="طول المتوسط الأول EMA1", minval=2)
+ema2_len = input.int(72, title="طول المتوسط الثاني EMA2", minval=2)
+ema_middle_len = input.int(30, title="طول المتوسط الأوسط (اختياري)", minval=2)
+show_middle = input.bool(true, title="إظهار المتوسط الأوسط؟")
+
+ema1 = ta.ema(close, ema1_len)
+ema2 = ta.ema(close, ema2_len)
+ema_middle = ta.ema(close, ema_middle_len)
+
+// ==== إعداد مستويات الفيبوناتشي (قابلة للإضافة) ====
+fib_236_val = input.float(0.236, title="مستوى 23.6%")
+fib_382_val = input.float(0.382, title="مستوى 38.2%")
+fib_50_val  = input.float(0.5, title="مستوى 50%")
+fib_618_val = input.float(0.618, title="مستوى 61.8%")
+fib_786_val = input.float(0.786, title="مستوى 78.6%")
+fib_1618_val = input.float(1.618, title="مستوى 161.8%")  // مستوى اختياري متقدم
+
+top_ema  = math.max(ema1, ema2)
+base_ema = math.min(ema1, ema2)
+
+fib_0    = base_ema
+fib_236  = base_ema + (top_ema - base_ema) * fib_236_val
+fib_382  = base_ema + (top_ema - base_ema) * fib_382_val
+fib_50   = base_ema + (top_ema - base_ema) * fib_50_val
+fib_618  = base_ema + (top_ema - base_ema) * fib_618_val
+fib_786  = base_ema + (top_ema - base_ema) * fib_786_val
+fib_100  = top_ema
+fib_1618 = base_ema + (top_ema - base_ema) * fib_1618_val
+
+// ==== رسم خطوط الفيبوناتشي ====
+p0    = plot(fib_0,   title="Fibonacci 0%",    color=color.red, linewidth=3, style=plot.style_line)
+p236  = plot(fib_236, title="Fibonacci 23.6%", color=color.new(color.blue, 60), linewidth=1)
+p382  = plot(fib_382, title="Fibonacci 38.2%", color=color.new(color.blue, 40), linewidth=1)
+p50   = plot(fib_50,  title="Fibonacci 50%",   color=color.new(color.blue, 20), linewidth=1)
+p618  = plot(fib_618, title="Fibonacci 61.8%", color=color.blue, linewidth=1)
+p786  = plot(fib_786, title="Fibonacci 78.6%", color=color.aqua, linewidth=1)
+p100  = plot(fib_100, title="Fibonacci 100%",  color=color.green, linewidth=3, style=plot.style_line)
+p1618 = plot(fib_1618, title="Fibonacci 161.8%", color=color.fuchsia, linewidth=1)
+
+// ==== ملء المنطقة بين 0% و100% ====
+fill(p0, p100, color=color.new(color.yellow, 92), title="Fill 0-100")
+
+// ==== رسم المتوسطات ====
+plot(ema1, color=color.orange, linewidth=1, title="EMA 1")
+plot(show_middle ? ema_middle : na, color=color.purple, linewidth=1, title="EMA الأوسط")
+plot(ema2, color=color.green, linewidth=2, title="EMA 2")
+
+// ==== خيارات الجدول المفتاحي (Legend Table) ====
+show_legend = input.bool(true, title="إظهار الجدول المفتاحي؟")
+legend_bgcolor = input.color(color.navy, title="خلفية الجدول")
+
+var table legend = table.new(position.bottom_right, 10, 2, frame_color=color.gray, border_width=1)
+
+if barstate.islast and show_legend
+    // رأس الجدول
+    table.cell(legend, 0, 0, "الدليل المفتاحي", text_color=color.white, bgcolor=legend_bgcolor, text_size=size.small)
+    table.cell(legend, 0, 1, "الوصف", text_color=color.white, bgcolor=legend_bgcolor, text_size=size.small)
+    // المتوسطات
+    table.cell(legend, 1, 0, "EMA 1 ("+str.tostring(ema1_len)+")", text_color=color.orange, bgcolor=color.black, text_size=size.tiny)
+    table.cell(legend, 1, 1, "خط رفيع برتقالي", text_color=color.white, bgcolor=color.black, text_size=size.tiny)
+    table.cell(legend, 2, 0, "EMA الأوسط ("+str.tostring(ema_middle_len)+")", text_color=color.purple, bgcolor=color.black, text_size=size.tiny)
+    table.cell(legend, 2, 1, "خط رفيع بنفسجي", text_color=color.white, bgcolor=color.black, text_size=size.tiny)
+    table.cell(legend, 3, 0, "EMA 2 ("+str.tostring(ema2_len)+")", text_color=color.green, bgcolor=color.black, text_size=size.tiny)
+    table.cell(legend, 3, 1, "خط أخضر سميك", text_color=color.white, bgcolor=color.black, text_size=size.tiny)
+    // الفيبوناتشي
+    table.cell(legend, 4, 0, "فيبوناتشي 0%", text_color=color.red, bgcolor=color.black, text_size=size.tiny)
+    table.cell(legend, 4, 1, "خط أحمر سميك", text_color=color.white, bgcolor=color.black, text_size=size.tiny)
+    table.cell(legend, 5, 0, "فيبوناتشي 23.6%", text_color=color.blue, bgcolor=color.black, text_size=size.tiny)
+    table.cell(legend, 5, 1, "خط أزرق فاتح", text_color=color.white, bgcolor=color.black, text_size=size.tiny)
+    table.cell(legend, 6, 0, "فيبوناتشي 38.2%", text_color=color.blue, bgcolor=color.black, text_size=size.tiny)
+    table.cell(legend, 6, 1, "خط أزرق أفتح", text_color=color.white, bgcolor=color.black, text_size=size.tiny)
+    table.cell(legend, 7, 0, "فيبوناتشي 50%", text_color=color.blue, bgcolor=color.black, text_size=size.tiny)
+    table.cell(legend, 7, 1, "خط أزرق متوسط", text_color=color.white, bgcolor=color.black, text_size=size.tiny)
+    table.cell(legend, 8, 0, "فيبوناتشي 61.8%", text_color=color.blue, bgcolor=color.black, text_size=size.tiny)
+    table.cell(legend, 8, 1, "خط أزرق غامق", text_color=color.white, bgcolor=color.black, text_size=size.tiny)
+    table.cell(legend, 9, 0, "فيبوناتشي 78.6%/161.8%", text_color=color.aqua, bgcolor=color.black, text_size=size.tiny)
+    table.cell(legend, 9, 1, "خط أكوا/فوشيا", text_color=color.white, bgcolor=color.black, text_size=size.tiny)
+
+// ==== نهاية الكود ====
+// تمت إزالة جميع الملصقات (labels) – الكود يعمل فقط متوسطات/فيبوناتشي/جدول مفتاحي احترافي!

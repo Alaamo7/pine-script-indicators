@@ -1,0 +1,125 @@
+//@version=6
+// Full Name: SuperTrend EGX Institutional Pro (ATR: 10, EMA: 50/200, Volume, SMC)
+indicator("SuperTrend EGX Pro", shorttitle="ST_EGX_Pro", overlay=true, max_lines_count=500, max_labels_count=500)
+
+// ============ 1. INPUTS (المدخلات) ============
+groupST     = "SuperTrend Settings"
+atrLength   = input.int(10, "ATR Length", minval=1, group=groupST)
+atrMult     = input.float(3.0, "ATR Multiplier", minval=0.1, step=0.1, group=groupST)
+
+groupTrend  = "Trend Engine"
+emaFastLen  = input.int(50, "EMA Fast (Trend)", group=groupTrend)
+emaSlowLen  = input.int(200, "EMA Slow (Macro)", group=groupTrend)
+
+groupMom    = "Momentum & Volume"
+rsiLength   = input.int(14, "RSI Length", group=groupMom)
+volSmaLen   = input.int(20, "Volume SMA Length", group=groupMom)
+
+groupVisual = "Dashboard & Visuals"
+showDash    = input.bool(true, "Show Dashboard", group=groupVisual)
+
+// ============ 2. TREND ENGINE (محرك الاتجاه) ============
+emaFast = ta.ema(close, emaFastLen)
+emaSlow = ta.ema(close, emaSlowLen)
+
+// تحديد الاتجاه المؤسسي العام لتجنب التداول عكس التيار
+macroBull = close > emaSlow and emaFast > emaSlow
+macroBear = close < emaSlow and emaFast < emaSlow
+
+// ============ 3. TECHNICAL INDICATORS (المؤشرات الفنية) ============
+// حساب SuperTrend باستخدام الدوال المدمجة لضمان الأداء الأفضل
+[superTrendValue, superTrendDir] = ta.supertrend(atrMult, atrLength)
+isUptrend   = superTrendDir == -1
+isDowntrend = superTrendDir == 1
+
+// حساب الزخم
+rsiVal = ta.rsi(close, rsiLength)
+
+// ============ 4. VOLUME & LIQUIDITY (السيولة والفوليوم) ============
+// لا دخول في EGX بدون سيولة تدعم الحركة
+volSma = ta.sma(volume, volSmaLen)
+highVolume = volume > (volSma * 1.5) // فوليوم أعلى من المتوسط بـ 50%
+
+// ============ 5. SMC LOGIC (المنطق المؤسسي) ============
+// تحديد القمم والقيعان المؤكدة لكشف كسر الهيكلية (BOS)
+var float lastHigh = na
+var float lastLow  = na
+ph = ta.pivothigh(high, 5, 5)
+pl = ta.pivotlow(low, 5, 5)
+
+if not na(ph)
+    lastHigh := ph
+if not na(pl)
+    lastLow := pl
+
+// ============ 6. SCORE SYSTEM (نظام النقاط الذكي) ============
+// تجميع النقاط (من 0 إلى 5) لفلترة الإشارات العشوائية
+var int score = 0
+score := 0
+if isUptrend
+    score += 1
+if macroBull
+    score += 1
+if rsiVal > 50 and rsiVal < 70 // زخم إيجابي قوي ولكن ليس في مرحلة تشبع
+    score += 1
+if highVolume // دعم السيولة (مهم جداً للبورصة المصرية)
+    score += 1
+if close > lastHigh // كسر هيكلية صاعد (BOS Up)
+    score += 1
+
+var int bearScore = 0
+bearScore := 0
+if isDowntrend
+    bearScore += 1
+if macroBear
+    bearScore += 1
+if rsiVal < 50 and rsiVal > 30 // زخم سلبي غير متشبع
+    bearScore += 1
+if highVolume
+    bearScore += 1
+if close < lastLow // كسر هيكلية هابط (BOS Down)
+    bearScore += 1
+
+// ============ 7. SIGNAL ENGINE (محرك الإشارات) ============
+// الإشارة لا تظهر إلا بعد إغلاق الشمعة (لمنع Repainting) وبتحقيق 3 نقاط على الأقل
+buyCond  = ta.crossover(close, superTrendValue) and score >= 3 and barstate.isconfirmed
+sellCond = ta.crossunder(close, superTrendValue) and bearScore >= 3 and barstate.isconfirmed
+
+// ============ 8. VISUAL LAYER (الطبقة البصرية) ============
+plot(superTrendValue, title="SuperTrend", color=isUptrend ? color.lime : color.red, linewidth=2, style=plot.style_linebr)
+plot(emaFast, title="EMA 50", color=color.orange, linewidth=1)
+plot(emaSlow, title="EMA 200", color=color.white, linewidth=2)
+
+// عرض الإشارات بوضوح
+plotshape(buyCond,  title="Buy Signal",  location=location.belowbar, style=shape.triangleup,   size=size.small, color=color.lime, text="BUY")
+plotshape(sellCond, title="Sell Signal", location=location.abovebar, style=shape.triangledown, size=size.small, color=color.red,  text="SELL")
+
+// ============ 9. DASHBOARD (لوحة البيانات) ============
+if showDash and barstate.islast
+    // تم استخدام var لتحسين الأداء وإنشاء الجدول مرة واحدة
+    var table dash = table.new(position.top_right, 2, 7, bgcolor=color.new(color.black, 85), border_color=color.gray, border_width=1)
+    
+    table.cell(dash, 0, 0, "ST EGX PRO", text_color=color.white, bgcolor=color.rgb(21, 101, 192))
+    table.cell(dash, 1, 0, "الحالة", text_color=color.white, bgcolor=color.rgb(21, 101, 192))
+
+    table.cell(dash, 0, 1, "الاتجاه الكلي", text_color=color.white)
+    table.cell(dash, 1, 1, macroBull ? "صاعد (EMA50>200)" : macroBear ? "هابط (EMA50<200)" : "عرضي", text_color=macroBull ? color.lime : macroBear ? color.red : color.yellow)
+
+    table.cell(dash, 0, 2, "السيولة (Volume)", text_color=color.white)
+    table.cell(dash, 1, 2, highVolume ? "نشطة" : "عادية", text_color=highVolume ? color.lime : color.gray)
+
+    table.cell(dash, 0, 3, "الهيكلية (SMC)", text_color=color.white)
+    table.cell(dash, 1, 3, close > lastHigh ? "BOS Up" : close < lastLow ? "BOS Down" : "داخل النطاق", text_color=color.white)
+
+    table.cell(dash, 0, 4, "نقاط الشراء", text_color=color.white)
+    table.cell(dash, 1, 4, str.tostring(score) + "/5", text_color=color.lime)
+
+    table.cell(dash, 0, 5, "نقاط البيع", text_color=color.white)
+    table.cell(dash, 1, 5, str.tostring(bearScore) + "/5", text_color=color.red)
+
+    table.cell(dash, 0, 6, "القرار الحالي", text_color=color.white)
+    table.cell(dash, 1, 6, score >= 3 ? "فرصة شراء" : bearScore >= 3 ? "فرصة بيع" : "انتظار", text_color=score >= 3 ? color.lime : bearScore >= 3 ? color.red : color.yellow)
+
+// ============ 10. ALERTS (التنبيهات) ============
+alertcondition(buyCond,  title="ST Institutional Buy",  message="إشارة شراء مؤكدة: اختراق SuperTrend مدعوم بسيولة قوية وهيكلية صاعدة.")
+alertcondition(sellCond, title="ST Institutional Sell", message="إشارة بيع مؤكدة: كسر SuperTrend للأسفل مع ضغط بيعي.")

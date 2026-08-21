@@ -1,0 +1,59 @@
+//@version=6
+indicator("Pro Correction Indicator (Alaamo7 Edition)", overlay=true)
+
+// واجهة إعدادات المستخدم
+fib_len      = input.int(100, title="فترة الفيبوناتشي")
+ema_len      = input.int(50, title="فترة المتوسط المتحرك الأسي EMA")
+rsi_len      = input.int(14, title="فترة RSI")
+rsi_ovb      = input.int(70, title="تشبع شرائي RSI")
+rsi_ovs      = input.int(30, title="تشبع بيعي RSI")
+vol_factor   = input.float(1.5, title="عامل حجم التداول (سبايك)", minval=1)
+show_fibo    = input.bool(true, "إظهار مناطق فيبوناتشي")
+show_ema     = input.bool(true, "إظهار EMA")
+show_rsi     = input.bool(true, "إظهار RSI")
+show_signal  = input.bool(true, "إظهار إشارة الشراء/البيع")
+show_vol_spk = input.bool(true, "تحليل سبايك حجم التداول")
+
+// حساب مناطق فيبوناتشي
+fibo_high = ta.highest(high, fib_len)
+fibo_low  = ta.lowest(low, fib_len)
+fibo_382  = fibo_high - (fibo_high - fibo_low) * 0.382
+fibo_618  = fibo_high - (fibo_high - fibo_low) * 0.618
+
+plot(show_fibo ? fibo_382 : na, color=color.yellow, linewidth=1, title="Fibo 38.2%")
+plot(show_fibo ? fibo_618 : na, color=color.purple, linewidth=1, title="Fibo 61.8%")
+
+// حساب EMA
+ema_val = ta.ema(close, ema_len)
+plot(show_ema ? ema_val : na, color=color.blue, linewidth=2, title="EMA")
+
+// حساب RSI
+rsi_val = ta.rsi(close, rsi_len)
+hline(show_rsi ? rsi_ovb : na, "RSI Overbought", color=color.red, linestyle=hline.style_dotted)
+hline(show_rsi ? rsi_ovs : na, "RSI Oversold", color=color.green, linestyle=hline.style_dotted)
+plot(show_rsi ? rsi_val : na, color=color.fuchsia, title="RSI", display=display.pane)
+
+// سبايك حجم التداول
+avg_vol = ta.sma(volume, 20)
+vol_spike = volume > avg_vol * vol_factor
+bgcolor(show_vol_spk and vol_spike ? color.new(color.orange, 85) : na, title="Volume Spike Highlight")
+
+// شروط إشارة الشراء والبيع
+buy_signal = close <= fibo_618 and close < ema_val and rsi_val < rsi_ovs and vol_spike
+sell_signal = close >= fibo_382 and close > ema_val and rsi_val > rsi_ovb and vol_spike
+
+plotshape(show_signal and buy_signal ? 1 : na, style=shape.triangleup, location=location.belowbar, color=color.green, size=size.large, title="Buy Signal")
+plotshape(show_signal and sell_signal ? 1 : na, style=shape.triangledown, location=location.abovebar, color=color.red, size=size.large, title="Sell Signal")
+
+// تقليل كثافة التسميات لتجنب التحذيرات
+var int last_buy = na
+var int last_sell = na
+min_bar_gap = 10
+
+if show_signal and buy_signal and (na(last_buy) or bar_index - last_buy > min_bar_gap)
+    label.new(bar_index, low, "تصحيح شرائي قوي", style=label.style_label_up, color=color.green, textcolor=color.white, size=size.normal)
+    last_buy := bar_index
+
+if show_signal and sell_signal and (na(last_sell) or bar_index - last_sell > min_bar_gap)
+    label.new(bar_index, high, "تصحيح بيعي قوي", style=label.style_label_down, color=color.red, textcolor=color.white, size=size.normal)
+    last_sell := bar_index

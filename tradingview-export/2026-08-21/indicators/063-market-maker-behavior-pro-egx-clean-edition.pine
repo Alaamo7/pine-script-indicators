@@ -1,0 +1,63 @@
+//@version=6
+indicator("Market Maker Behavior Pro – EGX Clean Edition", overlay=true, max_labels_count=500, max_lines_count=500)
+
+// === الإعدادات ===
+emaShortLen = input.int(9, "EMA Short", minval=1)
+emaLongLen  = input.int(21, "EMA Long", minval=1)
+rsiLen      = input.int(14, "RSI Length", minval=2)
+adxLen      = input.int(14, "ADX Length", minval=2)
+adxThresh   = input.float(25, "ADX Threshold", step=0.5)
+volSpikeMult= input.float(1.5, "Volume Spike Multiplier", step=0.1)
+showLegend  = input.bool(true, "Show Key Legend")
+showSignals = input.bool(true, "Show Market Maker Signals")
+
+// === المؤشرات ===
+emaShort = ta.ema(close, emaShortLen)
+emaLong  = ta.ema(close, emaLongLen)
+rsiVal   = ta.rsi(close, rsiLen)
+[_, _, adxVal] = ta.dmi(adxLen, 14)
+volMA    = ta.sma(volume, 20)
+volSpike = volume > volMA * volSpikeMult
+
+// مناطق دعم ومقاومة (Pivot)
+pivotHigh = ta.pivothigh(high, 10, 10)
+pivotLow  = ta.pivotlow(low, 10, 10)
+
+// === شروط إشارات الميكر ===
+buySignal  = ta.crossover(emaShort, emaLong) and rsiVal > 50 and adxVal > adxThresh and volSpike and not na(pivotLow) and low == pivotLow
+sellSignal = ta.crossunder(emaShort, emaLong) and rsiVal < 50 and adxVal > adxThresh and volSpike and not na(pivotHigh) and high == pivotHigh
+
+// === رسم الخطوط والإشارات ===
+if showSignals and buySignal
+    label.new(bar_index, low, "MM Buy", color=color.new(color.green, 0), style=label.style_label_up, textcolor=color.black, size=size.normal)
+    line.new(bar_index-1, low, bar_index, low, color=color.green, width=2, style=line.style_solid)
+if showSignals and sellSignal
+    label.new(bar_index, high, "MM Sell", color=color.new(color.red, 0), style=label.style_label_down, textcolor=color.white, size=size.normal)
+    line.new(bar_index-1, high, bar_index, high, color=color.red, width=2, style=line.style_solid)
+
+// --- تلوين خلفية الشمعة عند الإشارة (يجب وضعها في الجذر وليس داخل if)
+bgcolor(showSignals and buySignal ? color.new(color.green, 90) : na)
+bgcolor(showSignals and sellSignal ? color.new(color.red, 90) : na)
+
+// === رسم المتوسطات والمؤشرات ===
+plot(emaShort, "EMA 9", color=color.green, linewidth=2)
+plot(emaLong, "EMA 21", color=color.orange, linewidth=2)
+hline(50, "RSI 50", color=color.gray, linestyle=hline.style_dotted)
+plotshape(volSpike, title="Volume Spike", style=shape.triangleup, location=location.bottom, color=color.purple, size=size.tiny)
+
+// === دليل مفتاحي (Legend Table) ===
+var table legend = table.new(position.bottom_right, 5, 8, border_width=1)
+if barstate.islast and showLegend
+    table.clear(legend, 0, 0)
+    table.cell(legend, 0, 0, "Legend | دليل المؤشر", bgcolor=color.silver, text_color=color.black)
+    table.cell(legend, 1, 0, "EMA 9", text_color=color.green)
+    table.cell(legend, 2, 0, "EMA 21", text_color=color.orange)
+    table.cell(legend, 3, 0, "Volume Spike", text_color=color.purple)
+    table.cell(legend, 4, 0, "RSI > 50 ⬆", text_color=color.lime)
+    table.cell(legend, 0, 1, "ADX > 25 🔥", text_color=color.blue)
+    table.cell(legend, 1, 1, "Buy Signal", bgcolor=color.green, text_color=color.black)
+    table.cell(legend, 2, 1, "Sell Signal", bgcolor=color.red, text_color=color.white)
+    table.cell(legend, 3, 1, "Pivot High", text_color=color.red)
+    table.cell(legend, 4, 1, "Pivot Low", text_color=color.green)
+    table.cell(legend, 0, 2, "🔲 MM Area", bgcolor=color.new(color.orange, 80), text_color=color.black)
+    table.cell(legend, 1, 2, "All signals = Confirmed Filters Only", text_color=color.black)

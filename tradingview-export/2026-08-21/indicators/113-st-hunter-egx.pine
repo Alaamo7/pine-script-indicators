@@ -1,0 +1,98 @@
+//@version=6
+// Full Name: SuperTrend EGX Hunter Pro (ST + MM Traps + ADX Filter)
+// Author: علاء & Senior AI Coder
+indicator("ST Hunter EGX", shorttitle="ST_Hunter", overlay=true, max_lines_count=500, max_labels_count=500)
+
+// ============ 1. INPUTS (المدخلات) ============
+groupST     = "SuperTrend & Core"
+atrLength   = input.int(10, "ATR Length", minval=1, group=groupST)
+atrMult     = input.float(3.0, "ATR Multiplier", minval=0.1, group=groupST)
+
+groupHunter = "MM Trap (Hunter) Logic"
+volMult     = input.float(2.0, "Volume Spike Mult", minval=1.1, group=groupHunter) // [cite: 100]
+minBodyPct  = input.float(0.5, "Min Body % for Trap", group=groupHunter) // [cite: 101]
+
+groupFilters = "Trend & Strength Filters"
+useADX      = input.bool(true, "Use ADX Filter (Min 20)", group=groupFilters)
+emaMacro    = input.int(200, "Macro Trend EMA", group=groupFilters)
+
+groupVisual = "Visual Settings"
+showTraps   = input.bool(true, "Show MM Traps on Chart", group=groupVisual)
+showDash    = input.bool(true, "Show Pro Dashboard", group=groupVisual)
+
+// ============ 2. CORE ENGINES (المحركات الأساسية) ============
+// SuperTrend
+[stValue, stDir] = ta.supertrend(atrMult, atrLength)
+isUptrend = stDir == -1
+
+// ADX Filter (لقياس قوة الاتجاه وتجنب السوق العرضي) 
+[plusDI, minusDI, adx] = ta.dmi(14, 14)
+adxStrong = adx > 20
+
+// Volume Engine
+volSma = ta.sma(volume, 20)
+isVolSpike = volume > volSma * volMult // 
+
+// ============ 3. MM TRAP LOGIC (منطق صانع السوق) [cite: 94, 96] ============
+bodySize    = math.abs(close - open)
+bodyPercent = open != 0 ? (bodySize / open) * 100 : 0.0
+
+// فخ صاعد: شمعة هابطة + حجم عالٍ + إغلاق فوق قاع البار السابق (امتصاص بيعي) [cite: 105]
+bullTrap = close < open and isVolSpike and close > low[1] and bodyPercent > minBodyPct
+// فخ هابط: شمعة صاعدة + حجم عالٍ + إغلاق تحت قمة البار السابق (تصريف شرائي) [cite: 104]
+bearTrap = close > open and isVolSpike and close < high[1] and bodyPercent > minBodyPct
+
+// ============ 4. SCORE SYSTEM (نظام النقاط المطور) ============
+var int score = 0
+score := 0
+if isUptrend
+    score += 1
+if close > ta.ema(close, emaMacro)
+    score += 1
+if adxStrong
+    score += 1
+if isVolSpike
+    score += 1
+if bullTrap // الفخ الصاعد يعطي تأكيداً قوياً على تجميع السيولة
+    score += 1
+
+// ============ 5. SIGNALS & ALERTS (الإشارات والتنبيهات) ============
+// إشارة شراء "صياد": سوبر تريند صاعد + سيولة + (ADX أو Trap)
+buySignal  = isUptrend and isVolSpike and (adxStrong or bullTrap) and barstate.isconfirmed
+sellSignal = not isUptrend and isVolSpike and (adxStrong or bearTrap) and barstate.isconfirmed
+
+// ============ 6. VISUAL LAYER (الطبقة البصرية) ============
+plot(stValue, "SuperTrend", color=isUptrend ? color.lime : color.red, linewidth=2, style=plot.style_linebr)
+
+// رسم الفخاخ (MM Traps)
+plotshape(showTraps and bullTrap, "Bull Trap", shape.labelup, location.belowbar, color.aqua, text="MM BUY\nTRAP", textcolor=color.black, size=size.tiny)
+plotshape(showTraps and bearTrap, "Bear Trap", shape.labeldown, location.abovebar, color.orange, text="MM SELL\nTRAP", textcolor=color.black, size=size.tiny)
+
+// إشارات الدخول النهائية
+plotshape(buySignal, "Final Buy", shape.triangleup, location.belowbar, color.green, size=size.small, text="STRONG\nBUY")
+plotshape(sellSignal, "Final Sell", shape.triangledown, location.abovebar, color.red, size=size.small, text="STRONG\nSELL")
+
+// ============ 7. DASHBOARD (لوحة التحكم) ============
+if showDash and barstate.islast
+    var table dash = table.new(position.top_right, 2, 7, bgcolor=color.new(color.black, 80), border_color=color.gray, border_width=1)
+    table.cell(dash, 0, 0, "ST HUNTER PRO", text_color=color.white, bgcolor=color.gray)
+    table.cell(dash, 1, 0, "الحالة", text_color=color.white, bgcolor=color.gray)
+    
+    table.cell(dash, 0, 1, "قوة الاتجاه (ADX)", text_color=color.white)
+    table.cell(dash, 1, 1, adxStrong ? "قوي (" + str.tostring(adx, "0") + ")" : "ضعيف/عرضي", text_color=adxStrong ? color.lime : color.orange)
+    
+    table.cell(dash, 0, 2, "صانع السوق (MM)", text_color=color.white)
+    table.cell(dash, 1, 2, bullTrap ? "فخ شرائي (تجميع)" : bearTrap ? "فخ بيعي (تصريف)" : "لا يوجد فخاخ", text_color=bullTrap ? color.aqua : bearTrap ? color.orange : color.white)
+    
+    table.cell(dash, 0, 3, "السيولة (Volume)", text_color=color.white)
+    table.cell(dash, 1, 3, isVolSpike ? "انفجار سيولة" : "عادية", text_color=isVolSpike ? color.yellow : color.gray)
+    
+    table.cell(dash, 0, 4, "نقاط القوة", text_color=color.white)
+    table.cell(dash, 1, 4, str.tostring(score) + "/5", text_color=score >= 3 ? color.lime : color.white)
+
+    table.cell(dash, 0, 5, "القرار الاستراتيجي", text_color=color.white)
+    table.cell(dash, 1, 5, score >= 4 ? "شراء مؤسسي" : score == 3 ? "شراء مضاربي" : "انتظر السيولة", text_color=score >= 3 ? color.lime : color.yellow)
+
+// ============ 8. SMART ALERTS ============
+alertcondition(buySignal, "Hunter Buy Alert", "فرصة صيد! سيولة مؤسسية مع كسر فخ صانع السوق وتوافق SuperTrend.")
+alertcondition(bullTrap, "MM Bull Trap Detected", "تحذير: تم رصد فخ صاعد (تجميع سيولة) - راقب الاختراق.")

@@ -1,0 +1,54 @@
+//@version=5
+indicator("كشف تلاعبات الميكر - موبايل + دليل ألوان - إصدار خفيف", overlay=true)
+
+// إعدادات المستخدم
+length = input.int(20, title="عدد الشموع للفحص")
+mult = input.float(2.0, title="مضاعف الحجم")
+minBodyPercent = input.float(0.5, title="الحد الأدنى لنسبة جسم الشمعة (%)")
+
+// الحسابات
+avgVolume = ta.sma(volume, length)
+highVolume = volume > mult * avgVolume
+bodySize = math.abs(close - open)
+bodyPercent = open != 0 ? (bodySize / open) * 100 : 0
+
+bearishTrap = close > open and highVolume and close < high[1] and bodyPercent > minBodyPercent
+bullishTrap = close < open and highVolume and close > low[1] and bodyPercent > minBodyPercent
+
+// رسم الإشارات
+plotshape(bearishTrap, title="فخ بيعي", location=location.abovebar, style=shape.labeldown, size=size.normal, color=color.red, text="بيع", textcolor=color.white)
+plotshape(bullishTrap, title="فخ شرائي", location=location.belowbar, style=shape.labelup, size=size.normal, color=color.lime, text="شراء", textcolor=color.black)
+
+plot(bearishTrap ? high : na, title="خط فخ بيعي", color=color.red, linewidth=2)
+plot(bullishTrap ? low : na, title="خط فخ شرائي", color=color.lime, linewidth=2)
+
+bgcolor(bearishTrap ? color.new(color.red, 85) : bullishTrap ? color.new(color.green, 85) : na)
+
+// دليل ألوان صغير وواضح أعلى يمين الشارت
+var table legend = table.new(position.top_right, 6, 2, border_width=1, frame_color=color.blue, bgcolor=color.new(color.aqua, 85))
+
+if bar_index == 0
+    table.cell(legend, 0, 0, "الدليل البصري", bgcolor=color.blue, text_color=color.white, text_size=size.normal)
+    table.cell(legend, 0, 1, "الوصف", bgcolor=color.blue, text_color=color.white, text_size=size.normal)
+
+    table.cell(legend, 1, 0, "بيع", bgcolor=color.red, text_color=color.white, text_size=size.normal)
+    table.cell(legend, 1, 1, "فخ بيعي (شمعة خضراء بتصريف)", text_size=size.normal)
+
+    table.cell(legend, 2, 0, "شراء", bgcolor=color.lime, text_color=color.black, text_size=size.normal)
+    table.cell(legend, 2, 1, "فخ شرائي (شمعة حمراء بتجميع)", text_size=size.normal)
+
+    table.cell(legend, 3, 0, "خلفية حمراء", bgcolor=color.new(color.red, 85), text_color=color.white)
+    table.cell(legend, 3, 1, "تحذير من تصريف محتمل")
+
+    table.cell(legend, 4, 0, "خلفية خضراء", bgcolor=color.new(color.green, 85), text_color=color.black)
+    table.cell(legend, 4, 1, "تحذير من تجميع محتمل")
+
+    table.cell(legend, 5, 0, "المؤشرات", bgcolor=color.blue, text_color=color.white)
+    table.cell(legend, 5, 1, "SMA للحجم + شكل الشمعة", text_color=color.white)
+
+// لو عايز الجدول أصغر كمان: خلي text_size=size.tiny
+
+// لو عايز تلغي الجدول خالص وتخليه label بس فوق الشارت:
+// if bar_index == 0
+//     label.new(x=bar_index, y=high, text="الدليل: بيع = فخ بيعي | شراء = فخ شرائي", style=label.style_label_down, color=color.new(color.blue, 80), textcolor=color.white, size=size.normal)
+

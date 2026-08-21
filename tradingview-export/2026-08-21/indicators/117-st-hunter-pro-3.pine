@@ -1,0 +1,128 @@
+//@version=6
+// ==================================================================================
+// Full Name: SuperTrend EGX Hunter Pro
+// Author: علاء & Senior AI Coder
+//
+// ⚙️ الإعدادات الافتراضية:
+// - ATR Length          = 10
+// - ATR Multiplier      = 3.0
+// - Volume Spike Mult   = 2.0
+// - Min Body % for Trap = 0.5
+// - ADX Filter Level    = 20
+// - Macro Trend EMA     = 200
+// ==================================================================================
+
+indicator("ST Hunter Pro", shorttitle="ST_Hunter", overlay=true, max_lines_count=500, max_labels_count=500)
+
+// ============ 1. CONFIGURATIONS ============
+int   atrLength   = 10
+float atrMult     = 3.0
+
+float volMult     = 2.0
+float minBodyPct  = 0.5
+
+bool  useADX      = true
+int   emaMacroLen = 200
+
+bool  showTraps   = true
+bool  showSignals = true
+bool  showDash    = true
+
+// ============ 2. CORE ENGINES ============
+[stValue, stDir] = ta.supertrend(atrMult, atrLength)
+isUptrend = stDir == -1
+
+emaMacro = ta.ema(close, emaMacroLen)
+[plusDI, minusDI, adx] = ta.dmi(14, 14)
+adxStrong = adx > 20
+
+volSma = ta.sma(volume, 20)
+isVolSpike = volume > volSma * volMult
+
+// ============ 3. MM TRAP LOGIC ============
+bodySize    = math.abs(close - open)
+bodyPercent = open != 0 ? (bodySize / open) * 100 : 0.0
+
+bullTrap = close < open and isVolSpike and close > low[1] and bodyPercent > minBodyPct
+bearTrap = close > open and isVolSpike and close < high[1] and bodyPercent > minBodyPct
+
+// ============ 4. SCORE SYSTEM ============
+var int score = 0
+score := 0
+
+if isUptrend
+    score += 1
+if close > emaMacro
+    score += 1
+if adxStrong
+    score += 1
+if isVolSpike
+    score += 1
+if bullTrap
+    score += 1
+
+// ============ 5. SIGNALS & ALERTS ============
+buySignal  = isUptrend and isVolSpike and (adxStrong or bullTrap) and barstate.isconfirmed
+sellSignal = not isUptrend and isVolSpike and (adxStrong or bearTrap) and barstate.isconfirmed
+
+// ============ 6. VISUAL LAYER ============
+plot(stValue, "ST Line", color=isUptrend ? color.new(color.lime, 20) : color.new(color.red, 20), linewidth=2, style=plot.style_linebr, display=display.pane)
+
+plotshape(showTraps and bullTrap, "Bull Trap", shape.circle, location.belowbar, color.aqua, size=size.tiny, display=display.pane)
+plotshape(showTraps and bearTrap, "Bear Trap", shape.circle, location.abovebar, color.orange, size=size.tiny, display=display.pane)
+
+plotshape(showSignals and buySignal, "Buy", shape.triangleup, location.belowbar, color.lime, size=size.small, display=display.pane)
+plotshape(showSignals and sellSignal, "Sell", shape.triangledown, location.abovebar, color.red, size=size.small, display=display.pane)
+
+// ============ 7. DASHBOARD (الجدول المدمج الجديد) ============
+if showDash and barstate.islast
+    // إنشاء جدول من 3 أعمدة و 8 صفوف
+    var table dash = table.new(position.top_right, 3, 8, bgcolor=color.new(color.black, 75), border_color=color.gray, border_width=1)
+    
+    // --- الترويسة (الرأس) ---
+    table.cell(dash, 0, 0, "المعيار", text_color=color.white, bgcolor=color.new(color.blue, 40))
+    table.cell(dash, 1, 0, "القراءة الحالية", text_color=color.white, bgcolor=color.new(color.blue, 40))
+    table.cell(dash, 2, 0, "دليل العلامات (Legend)", text_color=color.white, bgcolor=color.new(color.blue, 40))
+    
+    // --- الصف الأول: الاتجاه ---
+    string emaStatus = close > emaMacro ? "صاعد (" + str.tostring(emaMacro, "#.##") + ")" : "هابط (" + str.tostring(emaMacro, "#.##") + ")"
+    table.cell(dash, 0, 1, "الاتجاه (EMA 200)", text_color=color.white)
+    table.cell(dash, 1, 1, emaStatus, text_color=close > emaMacro ? color.lime : color.red)
+    table.cell(dash, 2, 1, "〰️ الخط الملون: SuperTrend", text_color=color.gray)
+
+    // --- الصف الثاني: الزخم ---
+    string adxStatus = (adxStrong ? "قوي (" : "ضعيف (") + str.tostring(adx, "#.#") + ")"
+    table.cell(dash, 0, 2, "الزخم (ADX)", text_color=color.white)
+    table.cell(dash, 1, 2, adxStatus, text_color=adxStrong ? color.lime : color.orange)
+    table.cell(dash, 2, 2, "▲ مثلث أخضر: شراء مؤكد", text_color=color.lime)
+    
+    // --- الصف الثالث: السيولة ---
+    float volRatio = volSma > 0 ? volume / volSma : 0
+    string volStatus = (isVolSpike ? "نشطة (" : "عادية (") + str.tostring(volRatio, "#.#") + "x)"
+    table.cell(dash, 0, 3, "السيولة (Volume)", text_color=color.white)
+    table.cell(dash, 1, 3, volStatus, text_color=isVolSpike ? color.yellow : color.gray)
+    table.cell(dash, 2, 3, "▼ مثلث أحمر: بيع مؤكد", text_color=color.red)
+
+    // --- الصف الرابع: صانع السوق ---
+    table.cell(dash, 0, 4, "صانع السوق", text_color=color.white)
+    table.cell(dash, 1, 4, bullTrap ? "تجميع" : bearTrap ? "تصريف" : "هادئ", text_color=bullTrap ? color.aqua : bearTrap ? color.orange : color.white)
+    table.cell(dash, 2, 4, "● دائرة سماوي: فخ تجميع", text_color=color.aqua)
+    
+    // --- الصف الخامس: مستوى ST ---
+    table.cell(dash, 0, 5, "مستوى ST", text_color=color.white)
+    table.cell(dash, 1, 5, str.tostring(stValue, "#.###"), text_color=color.white)
+    table.cell(dash, 2, 5, "● دائرة برتقالي: فخ تصريف", text_color=color.orange)
+
+    // --- الصف السادس: النقاط ---
+    table.cell(dash, 0, 6, "نقاط القوة", text_color=color.white)
+    table.cell(dash, 1, 6, str.tostring(score) + "/5", text_color=score >= 3 ? color.lime : color.white)
+    table.cell(dash, 2, 6, "✔️ إشارات تعتمد على الإغلاق", text_color=color.gray)
+
+    // --- الصف السابع: القرار ---
+    table.cell(dash, 0, 7, "القرار الاستراتيجي", text_color=color.white)
+    table.cell(dash, 1, 7, score >= 4 ? "شراء مؤسسي" : score == 3 ? "شراء مضاربي" : "انتظر", text_color=score >= 3 ? color.lime : color.yellow)
+    table.cell(dash, 2, 7, "📊 التحديث: لحظي", text_color=color.gray)
+
+// ============ 8. ALERTS ============
+alertcondition(buySignal, "Hunter Buy Alert", "فرصة صيد! سيولة مؤسسية مع كسر فخ صانع السوق وتوافق SuperTrend.")
+alertcondition(bullTrap, "MM Bull Trap Detected", "تحذير: تم رصد فخ صاعد (تجميع سيولة) - راقب الاختراق.")

@@ -1,0 +1,28 @@
+//@version=6
+strategy("Scalping EMA+RSI Strategy", overlay=true)
+
+// EMA Settings
+emaFastLength = input.int(9, title="EMA Fast Length")
+emaSlowLength = input.int(21, title="EMA Slow Length")
+
+emaFast = ta.ema(close, emaFastLength)
+emaSlow = ta.ema(close, emaSlowLength)
+
+// RSI Settings
+rsiLength = input.int(14, title="RSI Length")
+rsi = ta.rsi(close, rsiLength)
+
+// Plot EMAs
+plot(emaFast, color=color.blue, title="EMA 9")
+plot(emaSlow, color=color.red, title="EMA 21")
+
+// Entry conditions
+longCondition = ta.crossover(emaFast, emaSlow) and rsi > 50
+shortCondition = ta.crossunder(emaFast, emaSlow) and rsi < 50
+
+// Execute trades
+if (longCondition)
+    strategy.entry("Long", strategy.long)
+
+if (shortCondition)
+    strategy.entry("Short", strategy.short)

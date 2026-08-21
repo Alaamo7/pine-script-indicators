@@ -1,0 +1,90 @@
+//@version=6
+indicator("Smart EGX Pro v1.2 – السوق المصري", overlay=true)
+
+// === المتوسطات المتحركة ===
+emaFast = ta.ema(close, 9)
+emaSlow = ta.ema(close, 21)
+plot(emaFast, title="EMA 9", color=color.orange, linewidth=2)
+plot(emaSlow, title="EMA 21", color=color.blue, linewidth=2)
+
+// === مؤشرات الزخم ===
+rsi = ta.rsi(close, 14)
+macdLine = ta.ema(close, 12) - ta.ema(close, 26)
+stochK = ta.stoch(close, high, low, 14)
+
+// === حساب ADX و DI يدويًا ===
+lengthADX = 14
+upMove = high - high[1]
+downMove = low[1] - low
+plusDM = na(upMove) ? na : (upMove > downMove and upMove > 0 ? upMove : 0)
+minusDM = na(downMove) ? na : (downMove > upMove and downMove > 0 ? downMove : 0)
+trur = ta.rma(ta.tr(true), lengthADX)
+plusDI = 100 * ta.rma(plusDM, lengthADX) / trur
+minusDI = 100 * ta.rma(minusDM, lengthADX) / trur
+dx = 100 * math.abs(plusDI - minusDI) / (plusDI + minusDI)
+adx = ta.rma(dx, lengthADX)
+
+// === تشبع RSI ===
+bgcolor(rsi > 70 ? color.new(color.red, 85) : na)
+bgcolor(rsi < 30 ? color.new(color.green, 85) : na)
+
+// === الحجم و OBV ===
+vol = volume
+volAvg = ta.sma(volume, 14)
+volRatio = vol / volAvg
+obv = ta.cum(close > close[1] ? volume : close < close[1] ? -volume : 0)
+
+// === جدول جانبي على يمين الشارت ===
+var table infoTable = table.new(position.middle_right, 2, 18, border_width=1)
+
+if bar_index % 5 == 0
+    // --- الزخم ---
+    table.cell(infoTable, 0, 0, "📈 الزخم", bgcolor=color.blue, text_color=color.white, text_halign=text.align_center, text_size=size.large)
+    table.cell(infoTable, 0, 1, "RSI", text_color=color.white, text_halign=text.align_center)
+    table.cell(infoTable, 1, 1, str.tostring(rsi, "#.0"), text_color=color.white, text_halign=text.align_center)
+
+    table.cell(infoTable, 0, 2, "MACD", text_color=color.white, text_halign=text.align_center)
+    table.cell(infoTable, 1, 2, str.tostring(macdLine, "#.000"), text_color=color.white, text_halign=text.align_center)
+
+    table.cell(infoTable, 0, 3, "Stoch %K", text_color=color.white, text_halign=text.align_center)
+    table.cell(infoTable, 1, 3, str.tostring(stochK, "#.0"), text_color=color.white, text_halign=text.align_center)
+
+    table.cell(infoTable, 0, 4, "ADX", text_color=color.white, text_halign=text.align_center)
+    table.cell(infoTable, 1, 4, str.tostring(adx, "#.0"), text_color=color.white, text_halign=text.align_center)
+
+    table.cell(infoTable, 0, 5, "+DI / -DI", text_color=color.white, text_halign=text.align_center)
+    table.cell(infoTable, 1, 5, str.tostring(plusDI, "#.0") + " / " + str.tostring(minusDI, "#.0"), text_color=color.white, text_halign=text.align_center)
+
+    // --- الحجم ---
+    table.cell(infoTable, 0, 6, "📊 الحجم", bgcolor=color.orange, text_color=color.black, text_halign=text.align_center, text_size=size.large)
+    table.cell(infoTable, 0, 7, "الحالي", text_color=color.white, text_halign=text.align_center)
+    table.cell(infoTable, 1, 7, str.tostring(vol, "#.0"), text_color=color.white, text_halign=text.align_center)
+
+    table.cell(infoTable, 0, 8, "المتوسط", text_color=color.white, text_halign=text.align_center)
+    table.cell(infoTable, 1, 8, str.tostring(volAvg, "#.0"), text_color=color.white, text_halign=text.align_center)
+
+    table.cell(infoTable, 0, 9, "النسبة", text_color=color.white, text_halign=text.align_center)
+    table.cell(infoTable, 1, 9, str.tostring(volRatio * 100, "#.0") + "%", text_color=color.white, text_halign=text.align_center)
+
+    table.cell(infoTable, 0, 10, "OBV", text_color=color.white, text_halign=text.align_center)
+    table.cell(infoTable, 1, 10, str.tostring(obv, "#.0"), text_color=color.white, text_halign=text.align_center)
+
+    // === الدليل المفتاحي ===
+    table.cell(infoTable, 0, 11, "🎨 الدليل", bgcolor=color.gray, text_color=color.white, text_halign=text.align_center, text_size=size.normal)
+    table.cell(infoTable, 0, 12, "🟠 EMA 9", text_color=color.orange, text_halign=text.align_center)
+    table.cell(infoTable, 1, 12, "سريع", text_color=color.white, text_halign=text.align_center)
+
+    table.cell(infoTable, 0, 13, "🔵 EMA 21", text_color=color.blue, text_halign=text.align_center)
+    table.cell(infoTable, 1, 13, "بطيء", text_color=color.white, text_halign=text.align_center)
+
+    table.cell(infoTable, 0, 14, "🟥 RSI > 70", text_color=color.red, text_halign=text.align_center)
+    table.cell(infoTable, 1, 14, "تشبع شرائي", text_color=color.white, text_halign=text.align_center)
+
+    table.cell(infoTable, 0, 15, "🟩 RSI < 30", text_color=color.green, text_halign=text.align_center)
+    table.cell(infoTable, 1, 15, "تشبع بيعي", text_color=color.white, text_halign=text.align_center)
+
+    table.cell(infoTable, 0, 16, "⚫ ADX > 25", text_color=color.gray, text_halign=text.align_center)
+    table.cell(infoTable, 1, 16, "اتجاه قوي", text_color=color.white, text_halign=text.align_center)
+
+    table.cell(infoTable, 0, 17, "📊 برتقالي", text_color=color.orange, text_halign=text.align_center)
+    table.cell(infoTable, 1, 17, "قسم الحجم", text_color=color.white, text_halign=text.align_center)

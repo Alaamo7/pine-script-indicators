@@ -1,0 +1,60 @@
+//@version=6
+indicator("Volume Master Analyzer", overlay=true)
+
+// إعدادات المستخدم
+vol_ma_len = input.int(20, title="متوسط متحرك لحجم التداول")
+obv_ma_len = input.int(14, title="متوسط متحرك لـ OBV")
+show_vwap = input.bool(true, title="إظهار VWAP")
+show_obv = input.bool(true, title="إظهار OBV")
+profile_len = input.int(60, title="فترة الفوليوم بروفايل (شموع)")
+wick_threshold = input.float(0.4, title="النسبة الدنيا لطول الذيل للشمعة (تلاعب)")
+
+// 1. حجم التداول ومتوسطه
+vol_ma = ta.sma(volume, vol_ma_len)
+vol_color = volume > vol_ma ? (close > open ? color.new(color.green, 0) : color.new(color.red, 0)) : color.new(color.gray, 0)
+plot(volume, style=plot.style_columns, color=vol_color, title="أعمدة الحجم")
+plot(vol_ma, color=color.blue, linewidth=2, title="متوسط حجم التداول")
+
+// 2. VWAP
+vwap_val = ta.vwap
+plot(show_vwap ? vwap_val : na, color=color.orange, linewidth=2, title="VWAP")
+
+// 3. On Balance Volume (OBV)
+obv = ta.cum(close > close[1] ? volume : close < close[1] ? -volume : 0)
+obv_ma = ta.sma(obv, obv_ma_len)
+plot(show_obv ? obv : na, color=color.purple, linewidth=1, title="OBV")
+plot(show_obv ? obv_ma : na, color=color.fuchsia, linewidth=2, title="OBV MA")
+
+// 4. فوليوم بروفايل بسيط
+var float zone_high = na
+var float zone_low = na
+if bar_index % profile_len == 0
+    zone_high := high
+    zone_low := low
+else
+    zone_high := math.max(zone_high, high)
+    zone_low := math.min(zone_low, low)
+bgcolor(bar_index % profile_len == 0 ? color.new(color.yellow, 80) : na, title="تغيير منطقة الفوليوم بروفايل")
+plot(bar_index % profile_len == 0 ? zone_high : na, color=color.yellow, linewidth=1, title="VP High")
+plot(bar_index % profile_len == 0 ? zone_low : na, color=color.yellow, linewidth=1, title="VP Low")
+
+// 5. تفسير التجميع/التصريف/التلاعب
+wick_size = math.max(high - close, close - low)
+body_size = math.abs(close - open)
+wick_ratio = (wick_size / (high - low))
+manipulation = (volume > vol_ma) and (wick_ratio > wick_threshold)
+
+accumulation = (volume > vol_ma) and (close > open)
+distribution = (volume > vol_ma) and (close < open)
+
+// إشارات نصية على الرسم
+var label myLabel = na
+if manipulation
+    label.delete(myLabel)
+    myLabel := label.new(bar_index, high, "⚠️ تلاعب محتمل", color=color.orange, style=label.style_label_down, textcolor=color.black)
+else if accumulation
+    label.delete(myLabel)
+    myLabel := label.new(bar_index, low, "تجميع", color=color.green, style=label.style_label_up, textcolor=color.white)
+else if distribution
+    label.delete(myLabel)
+    myLabel := label.new(bar_index, high, "تصريف", color=color.red, style=label.style_label_down, textcolor=color.white)

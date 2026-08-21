@@ -1,0 +1,28 @@
+//@version=5
+indicator("Day Trader Pro - Mobile + دليل مفتاحي", overlay=true, max_labels_count=500)
+
+//===== المؤشرات =====
+ema20 = ta.ema(close, 20)
+ema50 = ta.ema(close, 50)
+bbBasis = ta.sma(close, 20)
+bbDev = 2 * ta.stdev(close, 20)
+bbUpper = bbBasis + bbDev
+bbLower = bbBasis - bbDev
+[macdLine, signalLine, _] = ta.macd(close, 12, 26, 9)
+
+//===== رسم المؤشرات =====
+plot(ema20, color=color.lime, linewidth=2, title="EMA 20")
+plot(ema50, color=color.teal, linewidth=2, title="EMA 50")
+plot(bbUpper, color=color.orange, linewidth=1, title="BB Upper")
+plot(bbLower, color=color.orange, linewidth=1, title="BB Lower")
+plot(macdLine, color=color.purple, linewidth=1, display=display.none)
+plot(signalLine, color=color.fuchsia, linewidth=1, display=display.none)
+
+//===== جدول المفتاحي (Legend) =====
+var table legend = table.new(position.top_right, 1, 5, border_width=1)
+if bar_index == ta.highest(bar_index, 5)
+    table.cell(legend, 0, 0, "دليل الألوان والمؤشرات", text_color=color.white, bgcolor=color.gray)
+    table.cell(legend, 0, 1, "EMA 20 : أخضر فاقع", text_color=color.lime)
+    table.cell(legend, 0, 2, "EMA 50 : أزرق داكن", text_color=color.teal)
+    table.cell(legend, 0, 3, "بولنجر باند : برتقالي", text_color=color.orange)
+    table.cell(legend, 0, 4, "MACD : بنفسجي/فوشيا", text_color=color.purple)

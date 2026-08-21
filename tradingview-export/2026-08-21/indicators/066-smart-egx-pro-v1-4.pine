@@ -1,0 +1,116 @@
+//@version=6
+indicator("Smart EGX Pro v1.4 – السوق المصري", overlay=true)
+
+// === المتوسطات ===
+emaFast = ta.ema(close, 9)
+emaSlow = ta.ema(close, 21)
+plot(emaFast, "EMA 9", color=color.orange, linewidth=2)
+plot(emaSlow, "EMA 21", color=color.blue, linewidth=2)
+
+// === مؤشرات الزخم ===
+rsi = ta.rsi(close, 14)
+macdLine = ta.ema(close, 12) - ta.ema(close, 26)
+stochK = ta.stoch(close, high, low, 14)
+
+// === حساب ADX و DI يدويًا ===
+lengthADX = 14
+upMove = high - high[1]
+downMove = low[1] - low
+plusDM = na(upMove) ? na : (upMove > downMove and upMove > 0 ? upMove : 0)
+minusDM = na(downMove) ? na : (downMove > upMove and downMove > 0 ? downMove : 0)
+trur = ta.rma(ta.tr(true), lengthADX)
+plusDI = 100 * ta.rma(plusDM, lengthADX) / trur
+minusDI = 100 * ta.rma(minusDM, lengthADX) / trur
+dx = 100 * math.abs(plusDI - minusDI) / (plusDI + minusDI)
+adx = ta.rma(dx, lengthADX)
+
+// === الحجم و OBV ===
+vol = volume
+volAvg = ta.sma(volume, 14)
+volRatio = vol / volAvg
+obv = ta.cum(close > close[1] ? volume : close < close[1] ? -volume : 0)
+
+// === تشبع RSI بصريًا ===
+bgcolor(rsi > 70 ? color.new(color.red, 85) : rsi < 30 ? color.new(color.green, 85) : na)
+
+// === الدعم والمقاومة ===
+pivotHigh = ta.pivothigh(high, 5, 5)
+pivotLow = ta.pivotlow(low, 5, 5)
+var float resistance = na
+var float support = na
+resistance := na(pivotHigh) ? resistance[1] : pivotHigh
+support := na(pivotLow) ? support[1] : pivotLow
+plot(support, "دعم", color=color.green, linewidth=1, style=plot.style_linebr)
+plot(resistance, "مقاومة", color=color.red, linewidth=1, style=plot.style_linebr)
+
+// === كشف فخ الميكر (بحساسية أعلى) ===
+volMult     = input.float(defval=1.5, title="📉 مضاعف الحجم للفخ (أكثر حساسية)")
+bodyPercent = input.float(defval=0.4, title="📏 نسبة الجسم من الشمعة (أقل تشددًا)")
+avgVol = ta.sma(volume, 20)
+bigVol = volume > avgVol * volMult
+bodySize = math.abs(close - open)
+candleSize = high - low
+bodyRatio = candleSize > 0 ? bodySize / candleSize : 0.0
+bullTrap = (close > open) and bigVol and (close < high[1]) and (bodyRatio > bodyPercent)
+bearTrap = (close < open) and bigVol and (close > low[1]) and (bodyRatio > bodyPercent)
+bgcolor(bullTrap ? color.new(color.red, 80) : na, title="📛 فخ بيع")
+bgcolor(bearTrap ? color.new(color.green, 80) : na, title="🪤 فخ شراء")
+plotshape(bullTrap, style=shape.triangledown, location=location.abovebar, color=color.red, size=size.small, title="🔻 فخ بيع")
+plotshape(bearTrap, style=shape.triangleup, location=location.belowbar, color=color.green, size=size.small, title="🔺 فخ شراء")
+plotchar(bullTrap, title="⚠️ تنبيه فخ بيع", location=location.abovebar, color=color.red, text="⚠️ فخ بيع", size=size.tiny)
+plotchar(bearTrap, title="⚠️ تنبيه فخ شراء", location=location.belowbar, color=color.green, text="⚠️ فخ شراء", size=size.tiny)
+
+// === جدول موحد متطور (يمين الشارت) ===
+var table dash = table.new(position.middle_right, 2, 21, border_width=1)
+
+if bar_index % 5 == 0
+    // عنوان الجدول
+    table.cell(dash, 0, 0, "📊 Smart EGX Pro Dashboard", bgcolor=color.navy, text_color=color.white, text_halign=text.align_center, text_size=size.large)
+    table.cell(dash, 1, 0, "", bgcolor=color.navy)
+    // قسم الزخم
+    table.cell(dash, 0, 1, "RSI", text_color=color.white)
+    table.cell(dash, 1, 1, str.tostring(rsi, "#.0"), text_color=rsi > 70 ? color.red : rsi < 30 ? color.green : color.white)
+    table.cell(dash, 0, 2, "MACD", text_color=color.white)
+    table.cell(dash, 1, 2, str.tostring(macdLine, "#.000"), text_color=color.white)
+    table.cell(dash, 0, 3, "Stoch %K", text_color=color.white)
+    table.cell(dash, 1, 3, str.tostring(stochK, "#.0"), text_color=color.white)
+    table.cell(dash, 0, 4, "ADX", text_color=color.white)
+    table.cell(dash, 1, 4, str.tostring(adx, "#.0"), text_color=adx > 25 ? color.lime : color.white)
+    table.cell(dash, 0, 5, "+DI / -DI", text_color=color.white)
+    table.cell(dash, 1, 5, str.tostring(plusDI, "#.0") + " / " + str.tostring(minusDI, "#.0"), text_color=color.white)
+    // فاصل رمادي بين الأقسام
+    table.cell(dash, 0, 6, " ", bgcolor=color.gray)
+    table.cell(dash, 1, 6, " ", bgcolor=color.gray)
+    // قسم الحجم
+    table.cell(dash, 0, 7, "الحجم الحالي", text_color=color.orange)
+    table.cell(dash, 1, 7, str.tostring(vol, "#.0"), text_color=color.orange)
+    table.cell(dash, 0, 8, "المتوسط", text_color=color.orange)
+    table.cell(dash, 1, 8, str.tostring(volAvg, "#.0"), text_color=color.orange)
+    table.cell(dash, 0, 9, "النسبة", text_color=color.orange)
+    table.cell(dash, 1, 9, str.tostring(volRatio * 100, "#.0") + "%", text_color=volRatio > 1 ? color.lime : color.orange)
+    table.cell(dash, 0, 10, "OBV", text_color=color.orange)
+    table.cell(dash, 1, 10, str.tostring(obv, "#.0"), text_color=color.orange)
+    // فاصل رمادي بين الأقسام
+    table.cell(dash, 0, 11, " ", bgcolor=color.gray)
+    table.cell(dash, 1, 11, " ", bgcolor=color.gray)
+    // الدليل المفتاحي مع توسيط وألوان
+    table.cell(dash, 0, 12, "🎨 الدليل المفتاحي", bgcolor=color.gray, text_color=color.white, text_halign=text.align_center, text_size=size.large)
+    table.cell(dash, 1, 12, "", bgcolor=color.gray)
+    table.cell(dash, 0, 13, "🟠 EMA 9", text_color=color.orange, text_halign=text.align_center)
+    table.cell(dash, 1, 13, str.tostring(emaFast, "#.3f"), text_color=color.orange, text_halign=text.align_center)
+    table.cell(dash, 0, 14, "🔵 EMA 21", text_color=color.blue, text_halign=text.align_center)
+    table.cell(dash, 1, 14, str.tostring(emaSlow, "#.3f"), text_color=color.blue, text_halign=text.align_center)
+    table.cell(dash, 0, 15, "🟥 RSI > 70", text_color=color.red, text_halign=text.align_center)
+    table.cell(dash, 1, 15, rsi > 70 ? "تشبع شرائي" : "", text_color=color.red, text_halign=text.align_center)
+    table.cell(dash, 0, 16, "🟩 RSI < 30", text_color=color.green, text_halign=text.align_center)
+    table.cell(dash, 1, 16, rsi < 30 ? "تشبع بيعي" : "", text_color=color.green, text_halign=text.align_center)
+    table.cell(dash, 0, 17, "⚫ ADX > 25", text_color=color.gray, text_halign=text.align_center)
+    table.cell(dash, 1, 17, adx > 25 ? "اتجاه قوي" : "", text_color=color.gray, text_halign=text.align_center)
+    // فاصل رمادي بعد الدليل
+    table.cell(dash, 0, 18, " ", bgcolor=color.gray)
+    table.cell(dash, 1, 18, " ", bgcolor=color.gray)
+    // آخر قيم الدعم والمقاومة
+    table.cell(dash, 0, 19, "الدعم الأخير", text_color=color.green, text_halign=text.align_center)
+    table.cell(dash, 1, 19, str.tostring(support, "#.3f"), text_color=color.green, text_halign=text.align_center)
+    table.cell(dash, 0, 20, "المقاومة الأخيرة", text_color=color.red, text_halign=text.align_center)
+    table.cell(dash, 1, 20, str.tostring(resistance, "#.3f"), text_color=color.red, text_halign=text.align_center)

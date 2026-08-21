@@ -1,0 +1,19 @@
+//@version=5
+indicator("Swing Trader Pro - Mobile + دليل مفتاحي", overlay=true, max_labels_count=500)
+
+//===== المؤشرات =====
+ema50  = ta.ema(close, 50)
+ema100 = ta.ema(close, 100)
+rsi14  = ta.rsi(close, 14)
+
+//===== رسم المؤشرات =====
+plot(ema50,  color=color.green, linewidth=2, title="EMA 50")
+plot(ema100, color=color.maroon, linewidth=2, title="EMA 100")
+
+//===== جدول المفتاحي (Legend) =====
+var table legend = table.new(position.top_right, 1, 4, border_width=1)
+if bar_index == ta.highest(bar_index, 5)
+    table.cell(legend, 0, 0, "دليل الألوان والمؤشرات", text_color=color.white, bgcolor=color.gray)
+    table.cell(legend, 0, 1, "EMA 50 : أخضر", text_color=color.green)
+    table.cell(legend, 0, 2, "EMA 100 : نبيتي", text_color=color.maroon)
+    table.cell(legend, 0, 3, "RSI : يتم إضافته منفصلًا", text_color=color.fuchsia)

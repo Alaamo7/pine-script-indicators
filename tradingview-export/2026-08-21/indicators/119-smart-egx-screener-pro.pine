@@ -1,0 +1,114 @@
+//@version=6
+// Full Name: Smart EGX Screener Pro (Trend, Momentum, Volume, Score System)
+indicator("Smart EGX Screener Pro", shorttitle="EGX_Screener", overlay=true, max_labels_count=500, max_lines_count=500)
+
+// ==========================================
+// 1. Inputs (المدخلات المنظمة)
+// ==========================================
+groupTrend  = "إعدادات الاتجاه"
+emaShortLen = input.int(9, "EMA السريع", group=groupTrend)
+emaLongLen  = input.int(21, "EMA البطيء", group=groupTrend)
+ema50Len    = input.int(50, "EMA 50 (رئيسي)", group=groupTrend)
+ema200Len   = input.int(200, "EMA 200 (رئيسي)", group=groupTrend)
+
+groupMom    = "إعدادات الزخم والسيولة"
+rsiLen      = input.int(14, "فترة RSI", group=groupMom)
+volMult     = input.float(1.5, "مضاعف الفوليوم", step=0.1, group=groupMom)
+
+// ==========================================
+// 2. Trend Engine (محرك الاتجاه المؤسسي)
+// ==========================================
+emaShort = ta.ema(close, emaShortLen)
+emaLong  = ta.ema(close, emaLongLen)
+ema50    = ta.ema(close, ema50Len)
+ema200   = ta.ema(close, ema200Len)
+
+// ==========================================
+// 3. Technical Indicators (المؤشرات الفنية)
+// ==========================================
+rsi = ta.rsi(close, rsiLen)
+[macdLine, signalLine, macdHist] = ta.macd(close, 12, 26, 9)
+// استخدام دالة جاهزة ومحسنة للـ ADX
+[plusDI, minusDI, adx] = ta.dmi(14, 14) 
+
+// ==========================================
+// 4. Volume & Liquidity (السيولة والفوليوم)
+// ==========================================
+volMA = ta.sma(volume, 20)
+isVolumeSpike = volume > (volMA * volMult)
+
+// ==========================================
+// 5. Structure Logic (الهيكل السعري والدعوم)
+// استخدام [1] لضمان عدم إعادة الرسم (No Repainting)
+// ==========================================
+sr_length  = 50
+support    = ta.lowest(low, sr_length)[1]
+resistance = ta.highest(high, sr_length)[1]
+
+isNearSupport = (close - support) / close < 0.03
+isBreakout    = close > resistance and close[1] <= resistance[1]
+
+// ==========================================
+// 6. Score System (نظام النقاط الذكي 0 - 5)
+// ==========================================
+score = 0
+if emaShort > emaLong
+    score += 1
+if close > ema50
+    score += 1
+if rsi > 50
+    score += 1
+if macdHist > 0
+    score += 1
+if isVolumeSpike
+    score += 1
+
+// ==========================================
+// 7. Signal Engine (طبقة الإشارات)
+// ==========================================
+// تأكيد الشمعة: إغلاق إيجابي، جسم الشمعة يمثل أكثر من 50% من طولها الإجمالي
+isCandleBullish = close > open and (close - open) > (high - low) * 0.5
+// الإشارة: يجب أن يجمع السهم 4 نقاط على الأقل + شمعة إيجابية + تفاعل مع هيكل سعري
+smartEntry = (score >= 4) and isCandleBullish and (isNearSupport or isBreakout)
+
+// ==========================================
+// 8. Visual Layer (الطبقة البصرية)
+// ==========================================
+plot(emaShort, title="EMA 9", color=color.orange, linewidth=1)
+plot(emaLong, title="EMA 21", color=color.blue, linewidth=1)
+plot(ema50, title="EMA 50", color=color.yellow, linewidth=2)
+// إخفاء EMA 200 لتخفيف الزحمة، يمكن للمستخدم إظهاره من الإعدادات
+
+plot(support, title="Support", color=color.new(color.green, 50), linewidth=2, style=plot.style_linebr)
+plot(resistance, title="Resistance", color=color.new(color.red, 50), linewidth=2, style=plot.style_linebr)
+
+plotshape(smartEntry, title="ترشيح دخول", location=location.belowbar, style=shape.labelup, size=size.small, color=color.lime, text="BUY", textcolor=color.black)
+
+// ==========================================
+// 9. Dashboard / Legend (الداشبورد الموحد)
+// ==========================================
+var table fullTable = table.new(position.bottom_right, 4, 3, border_width=1, border_color=color.new(color.gray, 50))
+
+if barstate.islast
+    // ترويسة الجدول
+    table.cell(fullTable, 0, 0, "التحليل السعري", text_color=color.white, bgcolor=color.black)
+    table.cell(fullTable, 1, 0, "محرك الاتجاه", text_color=color.white, bgcolor=color.black)
+    table.cell(fullTable, 2, 0, "الزخم والسيولة", text_color=color.white, bgcolor=color.black)
+    table.cell(fullTable, 3, 0, "التقييم (Score)", text_color=color.white, bgcolor=color.black)
+
+    // الصف الأول
+    table.cell(fullTable, 0, 1, isBreakout ? "اختراق مقاومة" : isNearSupport ? "دعم قريب" : "تداول عرضي", text_color=isBreakout or isNearSupport ? color.green : color.gray)
+    table.cell(fullTable, 1, 1, "فوق EMA 50: " + (close > ema50 ? "نعم" : "لا"), text_color=close > ema50 ? color.green : color.red)
+    table.cell(fullTable, 2, 1, "RSI: " + str.tostring(rsi, "#.0"), text_color=rsi > 50 ? color.green : color.red)
+    table.cell(fullTable, 3, 1, "النقاط: " + str.tostring(score) + "/5", text_color=score >= 4 ? color.lime : color.orange, text_halign=text.align_center)
+
+    // الصف الثاني
+    table.cell(fullTable, 0, 2, "السعر: " + str.tostring(close, "#.00"), text_color=color.white)
+    table.cell(fullTable, 1, 2, "ADX: " + str.tostring(adx, "#.0"), text_color=adx > 20 ? color.green : color.gray)
+    table.cell(fullTable, 2, 2, "طفرة سيولة: " + (isVolumeSpike ? "نعم" : "لا"), text_color=isVolumeSpike ? color.yellow : color.gray)
+    table.cell(fullTable, 3, 2, smartEntry ? "🔥 إشارة دخول" : "⏳ انتظار", text_color=smartEntry ? color.black : color.white, bgcolor=smartEntry ? color.lime : color.gray)
+
+// ==========================================
+// 10. Alerts / Risk Logic (التنبيهات)
+// ==========================================
+alertcondition(smartEntry, title="Smart EGX Buy Alert", message="🔥 تنبيه: رصد إشارة دخول قوية بناءً على نظام النقاط والسيولة.")

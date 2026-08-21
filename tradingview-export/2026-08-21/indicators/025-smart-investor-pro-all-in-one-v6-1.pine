@@ -1,0 +1,110 @@
+//@version=6
+// آخر تحديث: 23 مايو 2025
+indicator("Smart Investor Pro - All-in-One v6.1", overlay=true)
+
+// زر Reset
+reset = input.bool(false, "🔄 إعادة الإعدادات للوضع الافتراضي؟")
+default(val) => reset ? val : na
+
+// واجهة التحكم
+show_EMA_Short = input.bool(true, "إظهار EMA (مضارب)")
+show_VWAP = input.bool(true, "إظهار VWAP")
+show_BB = input.bool(true, "إظهار Bollinger Bands")
+show_SMA50 = input.bool(true, "إظهار SMA 50")
+show_MACD = input.bool(true, "إظهار MACD")
+show_EMA100 = input.bool(true, "إظهار EMA 100")
+show_Ichimoku = input.bool(true, "إظهار إيشيموكو")
+show_EMA200 = input.bool(true, "إظهار EMA 200")
+show_RSI = input.bool(true, "إظهار RSI")
+show_SD_Zones = input.bool(true, "إظهار مناطق الطلب والعرض")
+
+isHigherTF = input.bool(false, "تفعيل عرض المؤشر من فاصل زمني أعلى؟")
+higherTF = input.timeframe("D", "اختر الفاصل الزمني الأعلى")
+
+src = isHigherTF ? request.security(syminfo.tickerid, higherTF, close) : close
+
+// EMA مضارب
+ema_short1 = ta.ema(src, 9)
+ema_short2 = ta.ema(src, 21)
+plot((reset or show_EMA_Short) ? ema_short1 : na, color=color.aqua, linewidth=1, title="EMA 9 (مضارب)")
+plot((reset or show_EMA_Short) ? ema_short2 : na, color=color.blue, linewidth=1, title="EMA 21 (مضارب)")
+
+// VWAP
+vwap = ta.vwap(isHigherTF ? request.security(syminfo.tickerid, higherTF, hlc3) : hlc3)
+plot((reset or show_VWAP) ? vwap : na, color=color.yellow, title="VWAP")
+
+// Bollinger Bands
+bb_src = src
+basis = ta.sma(bb_src, 20)
+dev = 2.0 * ta.stdev(bb_src, 20)
+upper_band = basis + dev
+lower_band = basis - dev
+plot((reset or show_BB) ? basis : na, "BB Basis", color=color.gray)
+plot((reset or show_BB) ? upper_band : na, "BB Upper", color=color.gray)
+plot((reset or show_BB) ? lower_band : na, "BB Lower", color=color.gray)
+
+// SMA50
+sma50 = ta.sma(src, 50)
+plot((reset or show_SMA50) ? sma50 : na, color=color.orange, linewidth=2, title="SMA 50")
+
+// MACD
+[macdLine, signalLine, histLine] = ta.macd(src, 12, 26, 9)
+plot((reset or show_MACD) ? macdLine : na, title="MACD Line", color=color.green)
+plot((reset or show_MACD) ? signalLine : na, title="Signal Line", color=color.red)
+plot((reset or show_MACD) ? histLine : na, title="MACD Histogram", style=plot.style_columns, color=color.gray)
+
+// EMA100
+ema100 = ta.ema(src, 100)
+plot((reset or show_EMA100) ? ema100 : na, color=color.purple, linewidth=2, title="EMA 100")
+
+// Ichimoku Cloud
+high_src = isHigherTF ? request.security(syminfo.tickerid, higherTF, high) : high
+low_src = isHigherTF ? request.security(syminfo.tickerid, higherTF, low) : low
+conversionPeriods = 9
+basePeriods = 26
+laggingSpan2Periods = 52
+displacement = 26
+
+conversionLine = (ta.highest(high_src, conversionPeriods) + ta.lowest(low_src, conversionPeriods)) / 2
+baseLine = (ta.highest(high_src, basePeriods) + ta.lowest(low_src, basePeriods)) / 2
+leadLine1 = (conversionLine + baseLine) / 2
+leadLine2 = (ta.highest(high_src, laggingSpan2Periods) + ta.lowest(low_src, laggingSpan2Periods)) / 2
+laggingSpan = src
+
+plot((reset or show_Ichimoku) ? conversionLine : na, title="Conversion Line", color=color.new(color.green, 30))
+plot((reset or show_Ichimoku) ? baseLine : na, title="Base Line", color=color.new(color.red, 30))
+plot((reset or show_Ichimoku) ? laggingSpan : na, offset=-displacement, title="Lagging Span", color=color.new(color.gray, 40))
+
+p1 = plot((reset or show_Ichimoku) ? leadLine1 : na, title="Senkou Span A", offset=displacement, color=color.new(color.green, 60))
+p2 = plot((reset or show_Ichimoku) ? leadLine2 : na, title="Senkou Span B", offset=displacement, color=color.new(color.red, 60))
+cloudColorBull = color.new(color.green, 85)
+cloudColorBear = color.new(color.red, 85)
+fill(p1, p2, color=(leadLine1 > leadLine2 ? cloudColorBull : cloudColorBear), title="Ichimoku Cloud")
+
+// EMA200
+ema200 = ta.ema(src, 200)
+plot((reset or show_EMA200) ? ema200 : na, color=color.red, linewidth=3, title="EMA 200")
+
+// RSI
+rsi = ta.rsi(src, 14)
+rsi_overbought = 70
+rsi_oversold = 30
+rsiColor = rsi > rsi_overbought ? color.red : rsi < rsi_oversold ? color.green : color.gray
+plot((reset or show_RSI) ? rsi : na, "RSI", color=rsiColor)
+
+// مناطق الطلب والعرض
+lowestLow = ta.lowest(low, 20)
+highestHigh = ta.highest(high, 20)
+
+isDemandZone = low <= lowestLow and close > open
+isSupplyZone = high >= highestHigh and close < open
+
+demandLevel = isDemandZone ? low : na
+supplyLevel = isSupplyZone ? high : na
+
+plotshape(show_SD_Zones and isDemandZone ? demandLevel : na, style=shape.triangleup, location=location.belowbar, color=color.green, title="منطقة طلب")
+plotshape(show_SD_Zones and isSupplyZone ? supplyLevel : na, style=shape.triangledown, location=location.abovebar, color=color.red, title="منطقة عرض")
+
+// تنبيهات
+alertcondition(ta.crossover(ema_short1, ema_short2), title="تقاطع EMA للمضارب (شراء)", message="EMA 9 crossed above EMA 21")
+alertcondition(ta.crossunder(ema_short1, ema_short2), title="تقاطع EMA للمضارب (بيع)", message="EMA 9 crossed below EMA 21")

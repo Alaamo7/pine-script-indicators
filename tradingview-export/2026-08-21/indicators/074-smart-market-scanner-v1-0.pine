@@ -1,0 +1,85 @@
+//@version=6
+indicator("Smart Market Scanner v1.0", overlay=true, max_labels_count=500)
+
+// ==========================
+// 🔹 1️⃣ Trend Detection
+// ==========================
+ema50  = ta.ema(close, 50)
+ema200 = ta.ema(close, 200)
+
+bullTrend = ema50 > ema200
+bearTrend = ema50 < ema200
+sideways  = ema50 == ema200
+
+plot(ema50,  color=color.blue,   title="EMA 50")
+plot(ema200, color=color.orange, title="EMA 200")
+
+bgcolor(bullTrend ? color.new(color.green,90) :
+       bearTrend ? color.new(color.red,90) : na)
+
+// ==========================
+// 🔹 2️⃣ Support & Resistance
+// ==========================
+leftBars  = 5
+rightBars = 5
+
+pivotHigh = ta.pivothigh(high, leftBars, rightBars)
+pivotLow  = ta.pivotlow(low, leftBars, rightBars)
+
+plotshape(pivotHigh, style=shape.triangledown,
+     location=location.abovebar, color=color.red, size=size.tiny)
+
+plotshape(pivotLow, style=shape.triangleup,
+     location=location.belowbar, color=color.green, size=size.tiny)
+
+// ==========================
+// 🔹 3️⃣ Candlestick Pattern
+// ==========================
+bullishEngulfing =
+     close[1] < open[1] and
+     close > open and
+     close > open[1] and
+     open < close[1]
+
+plotshape(bullishEngulfing,
+     title="Bullish Engulfing",
+     location=location.belowbar,
+     color=color.lime,
+     style=shape.labelup,
+     text="BE")
+
+// ==========================
+// 🔹 4️⃣ Smart Entry Signal
+// ==========================
+longSignal = bullishEngulfing and bullTrend
+
+if longSignal
+    label.new(bar_index, low,
+        "BUY",
+        style=label.style_label_up,
+        color=color.green,
+        textcolor=color.white)
+
+// ==========================
+// 🔹 5️⃣ Alerts
+// ==========================
+alertcondition(longSignal,
+     title="Buy Alert",
+     message="Smart Market Scanner: Buy signal detected")
+
+// ==========================
+// 🔹 6️⃣ Dashboard
+// ==========================
+var label dashboard = label.new(bar_index, na, "")
+
+trendText =
+     bullTrend ? "Trend: Bullish 📈" :
+     bearTrend ? "Trend: Bearish 📉" :
+     "Trend: Sideways"
+
+label.set_xy(dashboard, bar_index, high)
+label.set_text(dashboard,
+     trendText + "\nPrice: " + str.tostring(close))
+label.set_style(dashboard, label.style_label_left)
+label.set_color(dashboard, color.gray)
+label.set_textcolor(dashboard, color.white)

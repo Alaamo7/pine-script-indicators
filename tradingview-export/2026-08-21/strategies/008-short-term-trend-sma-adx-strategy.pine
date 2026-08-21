@@ -1,0 +1,39 @@
+//@version=6
+strategy("Short-term Trend SMA+Manual ADX Strategy", overlay=true)
+
+// SMA Settings
+smaFastLength = input.int(50, title="SMA Fast Length")
+smaSlowLength = input.int(200, title="SMA Slow Length")
+
+smaFast = ta.sma(close, smaFastLength)
+smaSlow = ta.sma(close, smaSlowLength)
+
+// ADX Settings
+adxLength = input.int(14, title="ADX Length")
+
+upMove = high - high[1]
+downMove = low[1] - low
+
+plusDM = upMove > downMove and upMove > 0 ? upMove : 0
+minusDM = downMove > upMove and downMove > 0 ? downMove : 0
+
+trur = ta.rma(ta.tr, adxLength)
+plusDI = 100 * ta.rma(plusDM, adxLength) / trur
+minusDI = 100 * ta.rma(minusDM, adxLength) / trur
+dx = 100 * math.abs(plusDI - minusDI) / (plusDI + minusDI)
+adx = ta.rma(dx, adxLength)
+
+// Plot SMAs
+plot(smaFast, color=color.green, title="SMA 50")
+plot(smaSlow, color=color.orange, title="SMA 200")
+
+// Entry conditions
+longCondition = (smaFast > smaSlow) and (adx > 20)
+shortCondition = (smaFast < smaSlow) and (adx > 20)
+
+// Execute trades
+if (longCondition)
+    strategy.entry("Long", strategy.long)
+
+if (shortCondition)
+    strategy.entry("Short", strategy.short)

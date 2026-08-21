@@ -1,0 +1,103 @@
+//@version=6
+strategy("Ultimate Scalping PRO V2.6 Legend Pro", overlay=true, default_qty_type=strategy.percent_of_equity, default_qty_value=10)
+
+// المتوسطات
+emaShortLength = input.int(9, title="EMA القصير")
+emaLongLength  = input.int(21, title="EMA الطويل")
+emaShort = ta.ema(close, emaShortLength)
+emaLong  = ta.ema(close, emaLongLength)
+
+// RSI
+rsiLength = input.int(14, title="طول RSI")
+rsiOverbought = input.int(70, title="تشبع شراء RSI")
+rsiOversold = input.int(30, title="تشبع بيع RSI")
+rsi = ta.rsi(close, rsiLength)
+
+// MACD
+[macdLine, signalLine, _] = ta.macd(close, 12, 26, 9)
+
+// ADX
+adxLength = input.int(14, title="طول ADX")
+adxSmoothing = input.int(14, title="Smoothing ADX")
+adxThreshold = input.int(20, title="فلتر قوة ADX")
+[plusDI, minusDI, adxVal] = ta.dmi(adxLength, adxSmoothing)
+
+// Stochastic
+stochK = ta.stoch(close, high, low, 14)
+stochD = ta.sma(stochK, 3)
+stochOverbought = input.int(80, title="تشبع شراء Stochastic")
+stochOversold = input.int(20, title="تشبع بيع Stochastic")
+
+// دعم ومقاومة
+pivotHigh = ta.pivothigh(high, 5, 5)
+pivotLow = ta.pivotlow(low, 5, 5)
+var float resistance = na
+var float support = na
+if (not na(pivotHigh))
+    resistance := high[5]
+if (not na(pivotLow))
+    support := low[5]
+plot(resistance, "المقاومة", color=color.red, style=plot.style_stepline)
+plot(support, "الدعم", color=color.green, style=plot.style_stepline)
+
+// ATR
+atrLength = input.int(14, title="طول ATR")
+atrMultiplier = input.float(1.5, title="مضاعف ATR")
+atr = ta.atr(atrLength)
+
+// شروط الدخول والخروج
+adxFilter = adxVal > adxThreshold
+stochFilterLong  = stochK < stochOverbought
+stochFilterShort = stochK > stochOversold
+
+buyCondition = ta.crossover(emaShort, emaLong) and (rsi < rsiOverbought) and (macdLine > signalLine) and adxFilter and stochFilterLong
+sellCondition = ta.crossunder(emaShort, emaLong) and (rsi > rsiOversold) and (macdLine < signalLine) and adxFilter and stochFilterShort
+
+if (buyCondition)
+    strategy.entry("Buy", strategy.long)
+if (sellCondition)
+    strategy.entry("Sell", strategy.short)
+
+// وقف الخسارة وجني الأرباح
+longStop  = close - (atr * atrMultiplier)
+longTarget = close + (atr * atrMultiplier)
+shortStop = close + (atr * atrMultiplier)
+shortTarget = close - (atr * atrMultiplier)
+
+if (buyCondition)
+    strategy.exit("TP/SL Buy", "Buy", limit=longTarget, stop=longStop)
+if (sellCondition)
+    strategy.exit("TP/SL Sell", "Sell", limit=shortTarget, stop=shortStop)
+
+// إشارات مرئية
+plot(emaShort, color=color.blue, linewidth=2, title="EMA 9")
+plot(emaLong, color=color.orange, linewidth=2, title="EMA 21")
+plotshape(buyCondition, location=location.belowbar, color=color.lime, style=shape.labelup, text="BUY")
+plotshape(sellCondition, location=location.abovebar, color=color.red, style=shape.labeldown, text="SELL")
+bgcolor(buyCondition ? color.new(color.lime, 85) : na)
+bgcolor(sellCondition ? color.new(color.red, 85) : na)
+
+// جدول الألوان - أسفل يمين
+var table legendColors = table.new(position.bottom_right, 1, 7, frame_color=color.new(color.gray, 0), frame_width=1, bgcolor=color.new(color.black, 0))
+if barstate.isfirst
+    table.cell(legendColors, 0, 0, "🔑 Legend", text_color=color.white, bgcolor=color.blue)
+    table.cell(legendColors, 0, 1, "EMA 9 → Blue", text_color=color.white)
+    table.cell(legendColors, 0, 2, "EMA 21 → Orange", text_color=color.white)
+    table.cell(legendColors, 0, 3, "Support → Green", text_color=color.white)
+    table.cell(legendColors, 0, 4, "Resistance → Red", text_color=color.white)
+    table.cell(legendColors, 0, 5, "BG Green → Buy", text_color=color.white)
+    table.cell(legendColors, 0, 6, "BG Red → Sell", text_color=color.white)
+
+// جدول الفلاتر - أعلى يمين
+var table filters = table.new(position.top_right, 1, 6, frame_color=color.new(color.gray, 0), frame_width=1, bgcolor=color.new(color.black, 0))
+if barstate.isfirst
+    table.cell(filters, 0, 0, "🧪 Filters", text_color=color.white, bgcolor=color.purple)
+    table.cell(filters, 0, 1, "EMA Cross", text_color=color.white)
+    table.cell(filters, 0, 2, "RSI Filter", text_color=color.white)
+    table.cell(filters, 0, 3, "MACD Filter", text_color=color.white)
+    table.cell(filters, 0, 4, "ADX Filter > 20", text_color=color.white)
+    table.cell(filters, 0, 5, "Stochastic Filter", text_color=color.white)
+
+// التنبيهات
+alertcondition(buyCondition, title="Buy Alert", message="📈 إشارة شراء Ultimate Scalping PRO V2.6")
+alertcondition(sellCondition, title="Sell Alert", message="📉 إشارة بيع Ultimate Scalping PRO V2.6")

@@ -1,0 +1,16 @@
+//@version=6  
+indicator("Smart MACD Confirmation", overlay=false)  
+
+// إعدادات MACD  
+fast_length = input.int(12, title="الفترة السريعة")  
+slow_length = input.int(26, title="الفترة البطيئة")  
+signal_length = input.int(9, title="فترة خط الإشارة")  
+src = close  
+
+// حساب MACD  
+[macdLine, signalLine, histLine] = ta.macd(src, fast_length, slow_length, signal_length)  
+
+// رسم  
+plot(histLine, title="Histogram", style=plot.style_columns, color=histLine >= 0 ? color.green : color.red)  
+plot(macdLine, title="MACD Line", color=color.blue, linewidth=2)  
+plot(signalLine, title="Signal Line", color=color.orange, linewidth=2)

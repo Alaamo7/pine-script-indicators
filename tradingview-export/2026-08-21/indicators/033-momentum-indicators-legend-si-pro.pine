@@ -1,0 +1,41 @@
+//@version=5
+indicator("Momentum Indicators Legend (SI Pro)", shorttitle="Momentum Legend (SI)", overlay=false)
+
+// --- واجهة التحكم ---
+show_MACD = input.bool(true, "مؤشر الماكد (MACD)")
+show_RSI = input.bool(true, "مؤشر القوة النسبية (RSI)")
+
+// --- تعريف الألوان ---
+color color_macd_line = color.new(color.blue, 0)
+color color_signal_line = color.new(color.orange, 0)
+color color_rsi_line = color.new(color.purple, 0)
+color color_hist_up = color.new(color.green, 60)
+color color_hist_down = color.new(color.red, 60)
+
+// --- دالة مساعدة للدليل ---
+f_add_legend_entry(table_id, row, indicator_name, indicator_color) =>
+    table.cell(table_id, 0, row, text="■", text_color=indicator_color, text_size=size.small)
+    table.cell(table_id, 1, row, text=indicator_name, text_size=size.small)
+
+// --- MACD ---
+[macdLine, signalLine, histLine] = ta.macd(close, 12, 26, 9)
+plot(show_MACD ? macdLine : na, "MACD Line", color=color_macd_line)
+plot(show_MACD ? signalLine : na, "Signal Line", color=color_signal_line)
+macd_hist_color = histLine >= 0 ? color_hist_up : color_hist_down
+plot(show_MACD ? histLine : na, "Histogram", style=plot.style_columns, color=macd_hist_color)
+hline(0, "MACD Zero Line", color.gray, hline.style_dashed)
+
+// --- RSI ---
+rsi = ta.rsi(close, 14)
+plot(show_RSI ? rsi : na, "RSI", color=color_rsi_line)
+rsi_overbought = hline(70, "Overbought", color.red)
+rsi_oversold = hline(30, "Oversold", color.green)
+fill(rsi_overbought, rsi_oversold, color=color.new(color.purple, 90))
+
+// --- الدليل المفتاحي ---
+var table legend = table.new(position.top_right, 2, 4, border_width=1)
+if barstate.islast
+    table.cell(legend, 1, 0, "دليل مؤشرات الزخم", bgcolor=color.new(color.gray, 80))
+    f_add_legend_entry(legend, 1, "خط الماكد", color_macd_line)
+    f_add_legend_entry(legend, 2, "خط الإشارة", color_signal_line)
+    f_add_legend_entry(legend, 3, "مؤشر القوة النسبية", color_rsi_line)

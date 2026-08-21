@@ -1,0 +1,141 @@
+//@version=6
+indicator("Smart EGX Institutional Suite v6 - Senior Pro", overlay=true, max_labels_count=500, max_boxes_count=500)
+
+//====================================================
+// 1. MOVING AVERAGES (المتوسطات المتحركة)
+//====================================================
+ema21  = ta.ema(close, 21)
+ema50  = ta.ema(close, 50)
+ema200 = ta.ema(close, 200)
+
+plot(ema21,  color=color.orange, linewidth=2, title="EMA 21 (Fast Trend)")
+plot(ema50,  color=color.blue,   linewidth=2, title="EMA 50 (Medium Trend)")
+plot(ema200, color=color.red,    linewidth=3, title="EMA 200 (Major Trend)")
+
+//====================================================
+// 2. TECHNICAL INDICATORS (RSI, ADX)
+//====================================================
+rsi = ta.rsi(close, 14)
+[plusDI, minusDI, adx] = ta.dmi(14, 14)
+
+//====================================================
+// 3. MARKET STRUCTURE & BOS (هيكلية السوق)
+//====================================================
+// الاعتماد على النقاط المحورية (Pivots) لتحديد كسر الهيكلية [cite: 1, 23]
+lb = input.int(5, "Pivot Left Bars")
+rb = input.int(5, "Pivot Right Bars")
+
+ph = ta.pivothigh(high, lb, rb)
+pl = ta.pivotlow(low, lb, rb)
+
+var float lastPH = na
+var float lastPL = na
+
+if not na(ph)
+    lastPH := ph
+if not na(pl)
+    lastPL := pl
+
+// كسر الهيكلية (BOS)
+bosUp   = ta.crossover(close, lastPH)
+bosDown = ta.crossunder(close, lastPL)
+
+plotshape(bosUp,   "BOS UP",   shape.triangleup,   location.belowbar, color.green, size=size.small)
+plotshape(bosDown, "BOS DOWN", shape.triangledown, location.abovebar, color.red,   size=size.small)
+
+//====================================================
+// 4. VOLUME & LIQUIDITY ANALYSIS (تحليل السيولة والحجم)
+//====================================================
+volAvg = ta.sma(volume, 20)
+volumeSpike = volume > volAvg * 1.8 // [cite: 6, 31]
+
+// منطق Stop Hunt المؤسسي (سحب السيولة والعودة)
+stopHuntHigh = high > lastPH and close < lastPH and volumeSpike
+stopHuntLow  = low < lastPL and close > lastPL and volumeSpike
+
+plotshape(stopHuntHigh, "Stop Hunt High", shape.xcross, location.abovebar, color.purple, size=size.small)
+plotshape(stopHuntLow,  "Stop Hunt Low",  shape.xcross, location.belowbar, color.purple, size=size.small)
+
+// Order Blocks (مناطق تجميع/تصريف مؤسسية) [cite: 3, 23]
+if volumeSpike and (not na(ph) or not na(pl))
+    box.new(left=bar_index - 5, top=high, right=bar_index, bottom=low, 
+     bgcolor=color.new(color.gray, 85), border_color=color.gray)
+
+// تفسير الحجم (Volume Interpretation)
+body = math.abs(close - open)
+candleRange = math.max(high - low, syminfo.mintick)
+lowerWick = open < close ? open - low : close - low
+upperWick = open < close ? high - close : high - open
+
+var string volumeMeaning = "Normal"
+if volumeSpike
+    if close > open and body > candleRange * 0.6
+        volumeMeaning := "Institution Buy"
+    else if close < open and body > candleRange * 0.6
+        volumeMeaning := "Distribution"
+    else if lowerWick > body
+        volumeMeaning := "Liquidity Grab"
+    else if bosUp
+        volumeMeaning := "Breakout Volume"
+    else
+        volumeMeaning := "High Activity"
+
+//====================================================
+// 5. SCORE SYSTEM (نظام التقييم الذكي)
+//====================================================
+int score = 0
+score += (close > ema21 and ema21 > ema50) ? 1 : 0 // اتجاه صاعد +1
+score += (rsi > 50 and rsi < 70) ? 1 : 0           // قوة شرائية صحية +1
+score += (adx > 25) ? 1 : 0                        // اتجاه قوي +1
+score += (volumeSpike) ? 1 : 0                     // نشاط مؤسسي +1
+score += (bosUp) ? 2 : 0                           // كسر هيكلية للأعلى +2
+score += (stopHuntLow) ? 2 : 0                     // فخ بيعي/تجميع +2
+
+string tradeGrade = score >= 5 ? "Strong Buy" : score >= 3 ? "Wait/Neutral" : "Weak/Avoid"
+color scoreColor  = score >= 5 ? color.green : score >= 3 ? color.yellow : color.red
+
+//====================================================
+// 6. DASHBOARD (لوحة النتائج والـ Legend)
+//====================================================
+// استخدام نظام الجداول في جهة position.middle_right [cite: 13, 40]
+var table panel = table.new(position.middle_right, 2, 13, bgcolor=color.new(color.black, 10), border_width=1, border_color=color.gray)
+
+if barstate.islast
+    // Header
+    table.cell(panel, 0, 0, "SMART EGX v6", bgcolor=color.black, text_color=color.white)
+    table.cell(panel, 1, 0, "SCORE: " + str.tostring(score), bgcolor=scoreColor, text_color=color.black)
+
+    // Signals
+    table.cell(panel, 0, 1, "Trend", text_color=color.white)
+    table.cell(panel, 1, 1, (close > ema50 ? "Bullish" : "Bearish"), bgcolor=(close > ema50 ? color.green : color.red))
+
+    table.cell(panel, 0, 2, "Grade", text_color=color.white)
+    table.cell(panel, 1, 2, tradeGrade, text_color=scoreColor)
+
+    table.cell(panel, 0, 3, "RSI", text_color=color.white)
+    table.cell(panel, 1, 3, str.tostring(rsi, "#.##"))
+
+    table.cell(panel, 0, 4, "ADX", text_color=color.white)
+    table.cell(panel, 1, 4, str.tostring(adx, "#.##"))
+
+    table.cell(panel, 0, 5, "Vol Signal", text_color=color.white)
+    table.cell(panel, 1, 5, volumeMeaning, bgcolor=volumeSpike ? color.yellow : color.gray)
+
+    table.cell(panel, 0, 6, "Stop Hunt", text_color=color.white)
+    table.cell(panel, 1, 6, (stopHuntHigh or stopHuntLow ? "Detected" : "No"), bgcolor=(stopHuntHigh or stopHuntLow ? color.purple : color.gray))
+
+    // Legend Section
+    table.cell(panel, 0, 8, "LEGEND / دليل الخطوط", bgcolor=color.gray, text_color=color.white)
+    table.cell(panel, 1, 8, "", bgcolor=color.gray)
+
+    table.cell(panel, 0, 9, "EMA 21", text_color=color.orange)
+    table.cell(panel, 1, 9, "Fast/Entry")
+
+    table.cell(panel, 0, 10, "EMA 50", text_color=color.blue)
+    table.cell(panel, 1, 10, "Medium/Trend")
+
+    table.cell(panel, 0, 11, "EMA 200", text_color=color.red)
+    table.cell(panel, 1, 11, "Major/Global")
+
+    table.cell(panel, 0, 12, "X Cross / Purple", text_color=color.purple)
+    table.cell(panel, 1, 12, "Stop Hunt/Trap")

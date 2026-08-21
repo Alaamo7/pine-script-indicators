@@ -1,0 +1,39 @@
+//@version=6
+indicator("AI Market Maker Liquidity Zones - Module v1.0", overlay=true)
+
+// === INPUTS ===
+zoneLookback = input.int(100, "Lookback Bars", minval=20)
+bufferPct = input.float(0.3, "Zone Buffer %", minval=0.1)
+
+// === DETECT SWING HIGHS / LOWS ===
+swingHigh = ta.highest(high, zoneLookback)
+swingLow = ta.lowest(low, zoneLookback)
+
+// Calculate Buffer Zones
+upperZone = swingHigh * (1 - bufferPct / 100)
+lowerZone = swingLow * (1 + bufferPct / 100)
+
+// === PLOT ZONES ===
+var box demandZone = na
+var box supplyZone = na
+
+if (na(demandZone))
+    demandZone := box.new(left=bar_index - zoneLookback, right=bar_index, top=lowerZone, bottom=swingLow, border_color=color.new(color.lime, 0), bgcolor=color.new(color.lime, 80))
+    supplyZone := box.new(left=bar_index - zoneLookback, right=bar_index, top=swingHigh, bottom=upperZone, border_color=color.new(color.red, 0), bgcolor=color.new(color.red, 80))
+else
+    box.set_left(demandZone, bar_index - zoneLookback)
+    box.set_right(demandZone, bar_index)
+    box.set_top(demandZone, lowerZone)
+    box.set_bottom(demandZone, swingLow)
+    
+    box.set_left(supplyZone, bar_index - zoneLookback)
+    box.set_right(supplyZone, bar_index)
+    box.set_top(supplyZone, swingHigh)
+    box.set_bottom(supplyZone, upperZone)
+
+// === Dashboard ===
+var table dash = table.new(position.bottom_right, 2, 2, border_width=1)
+
+if bar_index % 5 == 0
+    table.cell(dash, 0, 0, "Liquidity Zones")
+    table.cell(dash, 1, 0, "Active")

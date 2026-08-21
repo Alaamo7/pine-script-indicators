@@ -1,0 +1,45 @@
+//@version=6
+indicator("Smart EgyX Volume Analyzer (Sub)", overlay=false)
+
+// إعدادات العرض
+show_OBV     = input.bool(true, "إظهار OBV")
+show_AD      = input.bool(true, "إظهار Accum/Dist")
+show_CMF     = input.bool(true, "إظهار CMF")
+show_RVOL    = input.bool(true, "إظهار RVOL")
+show_VSpike  = input.bool(true, "إظهار انفجار الحجم")
+show_VMHist  = input.bool(true, "Volume MACD")
+
+// OBV
+obv = ta.cum(close > close[1] ? volume : close < close[1] ? -volume : 0)
+plot(show_OBV ? obv : na, title="OBV", color=color.aqua)
+
+// Accumulation/Distribution Line
+mfm = ((close - low) - (high - close)) / (high - low)
+mfm := na(mfm) ? 0 : mfm
+mfv = mfm * volume
+adLine = math.sum(mfv, 14)
+plot(show_AD ? adLine : na, title="Accum/Dist", color=color.orange)
+
+// ===== CMF: Chaikin Money Flow (بشكل يدوي) =====
+mfvSum = 0.0
+volSum = 0.0
+for i = 0 to 19
+    mfvSum += nz(mfv[i])
+    volSum += nz(volume[i])
+cmf = volSum != 0 ? mfvSum / volSum : 0
+plot(show_CMF ? cmf : na, title="CMF", color=color.lime)
+hline(0, "Zero", color=color.gray)
+
+// ===== RVOL =====
+vol_ma = ta.sma(volume, 20)
+rvol = volume / vol_ma
+plot(show_RVOL ? rvol : na, title="Relative Volume", color=color.fuchsia)
+hline(1, "المتوسط", color=color.gray, linestyle=hline.style_dotted)
+
+// ===== Volume Spike =====
+spike = volume > vol_ma * 1.5
+plotshape(show_VSpike and spike ? 1 : na, title="Volume Spike", location=location.top, style=shape.triangleup, color=color.red, size=size.tiny)
+
+// ===== Volume MACD Histogram =====
+[macdLine, signalLine, _] = ta.macd(volume, 12, 26, 9)
+plot(show_VMHist ? macdLine - signalLine : na, title="Volume MACD Hist", color=color.blue, style=plot.style_histogram)

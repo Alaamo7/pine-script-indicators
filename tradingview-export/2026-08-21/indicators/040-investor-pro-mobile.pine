@@ -1,0 +1,17 @@
+//@version=5
+indicator("Investor Pro - Mobile + دليل مفتاحي", overlay=true, max_labels_count=500)
+
+//===== المؤشرات =====
+sma100 = ta.sma(close, 100)
+sma200 = ta.sma(close, 200)
+
+//===== رسم المؤشرات =====
+plot(sma100, color=color.navy, linewidth=2, title="SMA 100")
+plot(sma200, color=color.red, linewidth=2, title="SMA 200")
+
+//===== جدول المفتاحي (Legend) =====
+var table legend = table.new(position.top_right, 1, 3, border_width=1)
+if bar_index == ta.highest(bar_index, 5)
+    table.cell(legend, 0, 0, "دليل الألوان والمؤشرات", text_color=color.white, bgcolor=color.gray)
+    table.cell(legend, 0, 1, "SMA 100 : كحلي", text_color=color.navy)
+    table.cell(legend, 0, 2, "SMA 200 : أحمر", text_color=color.red)

@@ -1,0 +1,95 @@
+//@version=6
+indicator("Smart EGX Order Flow Zones", overlay=true, max_boxes_count=200, max_lines_count=200)
+
+//=============================
+// SETTINGS
+//=============================
+
+groupZones = "Zone Settings"
+
+showOB = input.bool(true,"Show Order Blocks",group=groupZones)
+showFVG = input.bool(true,"Show Fair Value Gap",group=groupZones)
+showLiquidity = input.bool(true,"Show Liquidity Pools",group=groupZones)
+
+//=============================
+// ORDER BLOCK DETECTOR
+//=============================
+
+bullOB =
+ close > open and
+ close[1] < open[1] and
+ close > high[1]
+
+bearOB =
+ close < open and
+ close[1] > open[1] and
+ close < low[1]
+
+if showOB and bullOB
+    box.new(
+     bar_index-1,
+     open[1],
+     bar_index,
+     low[1],
+     bgcolor=color.new(color.green,80),
+     border_color=color.green)
+
+if showOB and bearOB
+    box.new(
+     bar_index-1,
+     high[1],
+     bar_index,
+     open[1],
+     bgcolor=color.new(color.red,80),
+     border_color=color.red)
+
+//=============================
+// FAIR VALUE GAP
+//=============================
+
+bullFVG =
+ low[1] > high[2]
+
+bearFVG =
+ high[1] < low[2]
+
+if showFVG and bullFVG
+    box.new(
+     bar_index-2,
+     high[2],
+     bar_index,
+     low[1],
+     bgcolor=color.new(color.green,85))
+
+if showFVG and bearFVG
+    box.new(
+     bar_index-2,
+     high[1],
+     bar_index,
+     low[2],
+     bgcolor=color.new(color.red,85))
+
+//=============================
+// LIQUIDITY POOLS
+//=============================
+
+pivotHigh = ta.pivothigh(high,3,3)
+pivotLow = ta.pivotlow(low,3,3)
+
+if showLiquidity and not na(pivotHigh)
+    line.new(
+     bar_index,
+     pivotHigh,
+     bar_index+30,
+     pivotHigh,
+     color=color.red,
+     width=1)
+
+if showLiquidity and not na(pivotLow)
+    line.new(
+     bar_index,
+     pivotLow,
+     bar_index+30,
+     pivotLow,
+     color=color.green,
+     width=1)

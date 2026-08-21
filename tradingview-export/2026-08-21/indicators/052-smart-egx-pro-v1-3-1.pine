@@ -1,0 +1,100 @@
+//@version=6
+indicator("Smart EGX Pro v1.3 – السوق المصري", overlay=true)
+
+// === المتوسطات ===
+emaFast = ta.ema(close, 9)
+emaSlow = ta.ema(close, 21)
+plot(emaFast, "EMA 9", color=color.orange, linewidth=2)
+plot(emaSlow, "EMA 21", color=color.blue, linewidth=2)
+
+// === مؤشرات الزخم ===
+rsi = ta.rsi(close, 14)
+macdLine = ta.ema(close, 12) - ta.ema(close, 26)
+stochK = ta.stoch(close, high, low, 14)
+
+// === حساب ADX و DI يدويًا ===
+lengthADX = 14
+upMove = high - high[1]
+downMove = low[1] - low
+plusDM = na(upMove) ? na : (upMove > downMove and upMove > 0 ? upMove : 0)
+minusDM = na(downMove) ? na : (downMove > upMove and downMove > 0 ? downMove : 0)
+trur = ta.rma(ta.tr(true), lengthADX)
+plusDI = 100 * ta.rma(plusDM, lengthADX) / trur
+minusDI = 100 * ta.rma(minusDM, lengthADX) / trur
+dx = 100 * math.abs(plusDI - minusDI) / (plusDI + minusDI)
+adx = ta.rma(dx, lengthADX)
+
+// === الحجم و OBV ===
+vol = volume
+volAvg = ta.sma(volume, 14)
+volRatio = vol / volAvg
+obv = ta.cum(close > close[1] ? volume : close < close[1] ? -volume : 0)
+
+// === تشبع RSI بصريًا ===
+bgcolor(rsi > 70 ? color.new(color.red, 85) : rsi < 30 ? color.new(color.green, 85) : na)
+
+// === الدعم والمقاومة ===
+pivotHigh = ta.pivothigh(high, 5, 5)
+pivotLow = ta.pivotlow(low, 5, 5)
+
+var float resistance = na
+var float support = na
+
+resistance := na(pivotHigh) ? resistance[1] : pivotHigh
+support := na(pivotLow) ? support[1] : pivotLow
+
+plot(support, "دعم", color=color.green, linewidth=1, style=plot.style_linebr)
+plot(resistance, "مقاومة", color=color.red, linewidth=1, style=plot.style_linebr)
+
+// === جدول المؤشرات (يمين الشارت) ===
+var table infoTable = table.new(position.middle_right, 2, 11, border_width=1)
+
+if bar_index % 5 == 0
+    table.cell(infoTable, 0, 0, "📈 الزخم", bgcolor=color.blue, text_color=color.white, text_halign=text.align_center, text_size=size.large)
+    table.cell(infoTable, 0, 1, "RSI", text_color=color.white)
+    table.cell(infoTable, 1, 1, str.tostring(rsi, "#.0"), text_color=color.white)
+
+    table.cell(infoTable, 0, 2, "MACD", text_color=color.white)
+    table.cell(infoTable, 1, 2, str.tostring(macdLine, "#.000"), text_color=color.white)
+
+    table.cell(infoTable, 0, 3, "Stoch %K", text_color=color.white)
+    table.cell(infoTable, 1, 3, str.tostring(stochK, "#.0"), text_color=color.white)
+
+    table.cell(infoTable, 0, 4, "ADX", text_color=color.white)
+    table.cell(infoTable, 1, 4, str.tostring(adx, "#.0"), text_color=color.white)
+
+    table.cell(infoTable, 0, 5, "+DI / -DI", text_color=color.white)
+    table.cell(infoTable, 1, 5, str.tostring(plusDI, "#.0") + " / " + str.tostring(minusDI, "#.0"), text_color=color.white)
+
+    table.cell(infoTable, 0, 6, "📊 الحجم", bgcolor=color.orange, text_color=color.black, text_size=size.large)
+    table.cell(infoTable, 0, 7, "الحالي", text_color=color.white)
+    table.cell(infoTable, 1, 7, str.tostring(vol, "#.0"), text_color=color.white)
+
+    table.cell(infoTable, 0, 8, "المتوسط", text_color=color.white)
+    table.cell(infoTable, 1, 8, str.tostring(volAvg, "#.0"), text_color=color.white)
+
+    table.cell(infoTable, 0, 9, "النسبة", text_color=color.white)
+    table.cell(infoTable, 1, 9, str.tostring(volRatio * 100, "#.0") + "%", text_color=color.white)
+
+    table.cell(infoTable, 0, 10, "OBV", text_color=color.white)
+    table.cell(infoTable, 1, 10, str.tostring(obv, "#.0"), text_color=color.white)
+
+// === جدول الدليل (أسفل الشارت) ===
+var table legendTable = table.new(position.bottom_right, 2, 6, border_width=1)
+
+if bar_index % 10 == 0
+    table.cell(legendTable, 0, 0, "🎨 الدليل", bgcolor=color.gray, text_color=color.white, text_halign=text.align_center, text_size=size.large)
+    table.cell(legendTable, 0, 1, "🟠 EMA 9", text_color=color.orange)
+    table.cell(legendTable, 1, 1, "متوسط سريع", text_color=color.white)
+
+    table.cell(legendTable, 0, 2, "🔵 EMA 21", text_color=color.blue)
+    table.cell(legendTable, 1, 2, "متوسط أبطأ", text_color=color.white)
+
+    table.cell(legendTable, 0, 3, "🟥 RSI > 70", text_color=color.red)
+    table.cell(legendTable, 1, 3, "تشبع شرائي", text_color=color.white)
+
+    table.cell(legendTable, 0, 4, "🟩 RSI < 30", text_color=color.green)
+    table.cell(legendTable, 1, 4, "تشبع بيعي", text_color=color.white)
+
+    table.cell(legendTable, 0, 5, "⚫ ADX > 25", text_color=color.gray)
+    table.cell(legendTable, 1, 5, "اتجاه قوي", text_color=color.white)

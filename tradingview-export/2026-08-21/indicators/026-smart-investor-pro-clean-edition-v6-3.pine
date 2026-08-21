@@ -1,0 +1,55 @@
+//@version=6  
+indicator("Smart Investor Pro - Clean Edition v6.3", overlay=true)
+
+// عناصر التحكم  
+show_EMA_Short = input.bool(true, "EMA 9/21")  
+show_VWAP = input.bool(true, "VWAP")  
+show_SMA50 = input.bool(true, "SMA 50")  
+show_EMA100 = input.bool(true, "EMA 100")  
+show_EMA200 = input.bool(true, "EMA 200")  
+show_Ichimoku = input.bool(false, "سحابة إيشيموكو")  
+show_BB = input.bool(false, "Bollinger Bands")  
+show_SD_Zones = input.bool(false, "مناطق العرض والطلب")
+
+// المصدر  
+src = close
+
+// EMA 9 و 21  
+ema9 = ta.ema(src, 9)  
+ema21 = ta.ema(src, 21)  
+plot(show_EMA_Short ? ema9 : na, color=color.teal, linewidth=1, title="EMA 9")  
+plot(show_EMA_Short ? ema21 : na, color=color.blue, linewidth=1, title="EMA 21")  
+
+// VWAP  
+plot(show_VWAP ? ta.vwap(hlc3) : na, title="VWAP", color=color.orange)
+
+// SMA 50  
+sma50 = ta.sma(src, 50)  
+plot(show_SMA50 ? sma50 : na, color=color.rgb(255, 165, 0), linewidth=2, title="SMA 50")
+
+// EMA 100  
+ema100 = ta.ema(src, 100)  
+plot(show_EMA100 ? ema100 : na, color=color.purple, linewidth=2, title="EMA 100")
+
+// EMA 200  
+ema200 = ta.ema(src, 200)  
+plot(show_EMA200 ? ema200 : na, color=color.red, linewidth=2, title="EMA 200")
+
+// سحابة إيشيموكو (اختياري)  
+high_ = high  
+low_ = low  
+conversion = (ta.highest(high_, 9) + ta.lowest(low_, 9)) / 2  
+base = (ta.highest(high_, 26) + ta.lowest(low_, 26)) / 2  
+lead1 = (conversion + base) / 2  
+lead2 = (ta.highest(high_, 52) + ta.lowest(low_, 52)) / 2  
+p1 = plot(show_Ichimoku ? lead1 : na, offset=26, color=color.new(color.green, 85), title="Lead 1")  
+p2 = plot(show_Ichimoku ? lead2 : na, offset=26, color=color.new(color.red, 85), title="Lead 2")  
+fill(p1, p2, color=lead1 > lead2 ? color.new(color.green, 90) : color.new(color.red, 90))
+
+// مناطق الطلب والعرض  
+low20 = ta.lowest(low, 20)  
+high20 = ta.highest(high, 20)  
+isDemand = low <= low20 and close > open  
+isSupply = high >= high20 and close < open  
+plotshape(show_SD_Zones and isDemand ? low : na, style=shape.triangleup, location=location.belowbar, color=color.green, title="طلب")  
+plotshape(show_SD_Zones and isSupply ? high : na, style=shape.triangledown, location=location.abovebar, color=color.red, title="عرض")

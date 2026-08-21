@@ -1,0 +1,96 @@
+//@version=6
+indicator("Smart EGX Smart Money Core", overlay=true)
+
+//=============================
+// SETTINGS
+//=============================
+
+groupSignals = "Smart Money Signals"
+
+showStructure = input.bool(true,"Show Market Structure",group=groupSignals)
+showSweeps = input.bool(true,"Show Liquidity Sweeps",group=groupSignals)
+showTraps = input.bool(true,"Show Traps",group=groupSignals)
+
+//=============================
+// MARKET STRUCTURE
+//=============================
+
+pivotHigh = ta.pivothigh(high,3,3)
+pivotLow  = ta.pivotlow(low,3,3)
+
+var float lastHigh = na
+var float lastLow  = na
+
+if not na(pivotHigh)
+    lastHigh := pivotHigh
+
+if not na(pivotLow)
+    lastLow := pivotLow
+
+bosUp = close > lastHigh
+bosDown = close < lastLow
+
+if showStructure and bosUp
+    label.new(bar_index,high,"BOS ↑",
+    color=color.green,
+    textcolor=color.white)
+
+if showStructure and bosDown
+    label.new(bar_index,low,"BOS ↓",
+    color=color.red,
+    textcolor=color.white)
+
+//=============================
+// LIQUIDITY SWEEPS
+//=============================
+
+sweepHigh =
+ high > high[1] and close < high[1]
+
+sweepLow =
+ low < low[1] and close > low[1]
+
+if showSweeps and sweepHigh
+    label.new(bar_index,high,"Liquidity Sweep",
+    color=color.orange)
+
+if showSweeps and sweepLow
+    label.new(bar_index,low,"Liquidity Sweep",
+    color=color.aqua)
+
+//=============================
+// TRAP DETECTOR
+//=============================
+
+bullTrap =
+ close < open and
+ low < low[1] and
+ close > low[1]
+
+bearTrap =
+ close > open and
+ high > high[1] and
+ close < high[1]
+
+if showTraps and bullTrap
+    label.new(bar_index,low,"Bull Trap",
+    color=color.green,
+    textcolor=color.white)
+
+if showTraps and bearTrap
+    label.new(bar_index,high,"Bear Trap",
+    color=color.red,
+    textcolor=color.white)
+
+//=============================
+// VOLUME CONFIRMATION
+//=============================
+
+volMA = ta.sma(volume,20)
+
+volSpike =
+ volume > volMA * 2
+
+if volSpike
+    label.new(bar_index,high,"Volume Spike",
+    color=color.yellow)
