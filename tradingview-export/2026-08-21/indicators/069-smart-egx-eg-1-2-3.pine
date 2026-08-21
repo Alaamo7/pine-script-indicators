@@ -1,0 +1,119 @@
+//@version=6
+indicator("Smart EGX EG | الباقة المصرية | المرحلة 1+2+3", overlay=true)
+
+// دالة لحساب عدد الشموع الفعلية في جلسة البورصة المصرية (270 دقيقة من 10 الى 2:30)
+getBarsPerSession() =>
+    bars = 1
+    if timeframe.isminutes
+        if timeframe.multiplier == 1
+            bars := 270
+        else if timeframe.multiplier == 5
+            bars := 54
+        else if timeframe.multiplier == 15
+            bars := 18
+        else if timeframe.multiplier == 30
+            bars := 9
+        else if timeframe.multiplier == 60
+            bars := 5
+    bars
+
+barsPerSession = getBarsPerSession()
+
+// المتوسطات المصرية
+ema13   = ta.ema(close, math.min(math.round(13 * barsPerSession), 4999))
+ema30   = ta.ema(close, math.min(math.round(30 * barsPerSession), 4999))
+ema72   = ta.ema(close, math.min(math.round(72 * barsPerSession), 4999))
+ema144  = ta.ema(close, math.min(math.round(144 * barsPerSession), 4999))
+ema288  = ta.ema(close, math.min(math.round(288 * barsPerSession), 4999))
+
+plot(ema13,  title="EMA13 EG",  color=color.orange)
+plot(ema30,  title="EMA30 EG",  color=color.blue)
+plot(ema72,  title="EMA72 EG",  color=color.teal)
+plot(ema144, title="EMA144 EG", color=color.fuchsia)
+plot(ema288, title="EMA288 EG", color=color.gray, linewidth=2)
+
+// === RSI ===
+rsi = ta.rsi(close, 14)
+plot(rsi, title="RSI", color=color.lime, display=display.none)
+
+// === ADX ===
+upMove   = high - high[1]
+downMove = low[1] - low
+plusDM   = na(upMove)   ? na : (upMove > downMove and upMove > 0 ? upMove : 0)
+minusDM  = na(downMove) ? na : (downMove > upMove and downMove > 0 ? downMove : 0)
+trur     = ta.rma(ta.tr(true), 14)
+plusDI   = 100 * ta.rma(plusDM, 14) / trur
+minusDI  = 100 * ta.rma(minusDM, 14) / trur
+adx      = 100 * ta.rma(math.abs(plusDI - minusDI) / (plusDI + minusDI), 14)
+plot(adx, title="ADX", color=color.navy, display=display.none)
+
+// === MACD ===
+[macdLine, signalLine, histLine] = ta.macd(close, 12, 26, 9)
+plot(macdLine,   title="MACD Line", color=color.yellow, display=display.none)
+plot(signalLine, title="Signal Line", color=color.orange, display=display.none)
+
+// === Stochastic ===
+kLength = 14
+dLength = 3
+k = ta.stoch(close, high, low, kLength)
+d = ta.sma(k, dLength)
+plot(k, title="Stoch %K", color=color.aqua, display=display.none)
+plot(d, title="Stoch %D", color=color.purple, display=display.none)
+
+// === Bollinger Bands ===
+bbLength = 20
+bbMult   = 2.0
+bbBasis  = ta.sma(close, bbLength)
+bbUpper  = bbBasis + bbMult * ta.stdev(close, bbLength)
+bbLower  = bbBasis - bbMult * ta.stdev(close, bbLength)
+plot(bbUpper,  title="BB Upper", color=color.green, display=display.none)
+plot(bbBasis,  title="BB Basis", color=color.gray, display=display.none)
+plot(bbLower,  title="BB Lower", color=color.red, display=display.none)
+
+// === Dashboard Table ===
+var table myTable = table.new(position.top_right, 4, 8, border_width=1)
+
+f_color(val, up, down) =>
+    val > up ? color.lime : val < down ? color.red : color.silver
+
+if barstate.islast
+    table.clear(myTable, start_column=0, start_row=0)
+    // العناوين
+    table.cell(myTable, 0, 0, "المؤشر", bgcolor=color.rgb(30,30,30), text_color=color.yellow, text_size=size.small)
+    table.cell(myTable, 1, 0, "الحالة", bgcolor=color.rgb(30,30,30), text_color=color.yellow, text_size=size.small)
+    table.cell(myTable, 2, 0, "القيمة", bgcolor=color.rgb(30,30,30), text_color=color.yellow, text_size=size.small)
+    table.cell(myTable, 3, 0, "الفلتر", bgcolor=color.rgb(30,30,30), text_color=color.yellow, text_size=size.small)
+    // EMA's
+    table.cell(myTable, 0, 1, "EMA13", text_color=color.orange)
+    table.cell(myTable, 1, 1, str.tostring(ema13))
+    table.cell(myTable, 2, 1, close > ema13 ? "فوق" : "تحت")
+    table.cell(myTable, 3, 1, "", bgcolor=f_color(close, ema13, ema13))
+    table.cell(myTable, 0, 2, "EMA30", text_color=color.blue)
+    table.cell(myTable, 1, 2, str.tostring(ema30))
+    table.cell(myTable, 2, 2, close > ema30 ? "فوق" : "تحت")
+    table.cell(myTable, 3, 2, "", bgcolor=f_color(close, ema30, ema30))
+    table.cell(myTable, 0, 3, "EMA72", text_color=color.teal)
+    table.cell(myTable, 1, 3, str.tostring(ema72))
+    table.cell(myTable, 2, 3, close > ema72 ? "فوق" : "تحت")
+    table.cell(myTable, 3, 3, "", bgcolor=f_color(close, ema72, ema72))
+    table.cell(myTable, 0, 4, "EMA144", text_color=color.fuchsia)
+    table.cell(myTable, 1, 4, str.tostring(ema144))
+    table.cell(myTable, 2, 4, close > ema144 ? "فوق" : "تحت")
+    table.cell(myTable, 3, 4, "", bgcolor=f_color(close, ema144, ema144))
+    table.cell(myTable, 0, 5, "EMA288", text_color=color.gray)
+    table.cell(myTable, 1, 5, str.tostring(ema288))
+    table.cell(myTable, 2, 5, close > ema288 ? "فوق" : "تحت")
+    table.cell(myTable, 3, 5, "", bgcolor=f_color(close, ema288, ema288))
+    // RSI
+    table.cell(myTable, 0, 6, "RSI", text_color=color.lime)
+    table.cell(myTable, 1, 6, str.tostring(rsi, "#.##"))
+    table.cell(myTable, 2, 6, rsi > 70 ? "تشبع شراء" : rsi < 30 ? "تشبع بيع" : "طبيعى")
+    table.cell(myTable, 3, 6, "", bgcolor=f_color(rsi, 70, 30))
+    // ADX
+    table.cell(myTable, 0, 7, "ADX", text_color=color.navy)
+    table.cell(myTable, 1, 7, str.tostring(adx, "#.##"))
+    table.cell(myTable, 2, 7, adx > 25 ? "قوى" : "ضعيف")
+    table.cell(myTable, 3, 7, "", bgcolor=f_color(adx, 25, 0))
+
+// لو عايز تضيف باقى المؤشرات أو جداول أكبر - عرف الأعمدة وعدل الدوال بنفس النمط ده
+

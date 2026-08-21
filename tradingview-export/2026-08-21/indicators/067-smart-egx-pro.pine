@@ -1,0 +1,86 @@
+//@version=5
+indicator("Smart EGX Pro 📋 دليل الفلاتر والمؤشرات", overlay=true)
+
+// ======= المؤشرات الرئيسية =======
+ema9  = ta.ema(close, 9)
+ema21 = ta.ema(close, 21)
+rsi   = ta.rsi(close, 14)
+
+// حساب ADX يدويًا
+lengthADX = 14
+upMove = high - high[1]
+downMove = low[1] - low
+plusDM = na(upMove) ? na : (upMove > downMove and upMove > 0 ? upMove : 0)
+minusDM = na(downMove) ? na : (downMove > upMove and downMove > 0 ? downMove : 0)
+trur = ta.rma(ta.tr, lengthADX)
+plusDI = 100 * ta.rma(plusDM, lengthADX) / trur
+minusDI = 100 * ta.rma(minusDM, lengthADX) / trur
+dx = 100 * math.abs(plusDI - minusDI) / (plusDI + minusDI)
+adx = ta.rma(dx, lengthADX)
+
+macdLine = ta.ema(close, 12) - ta.ema(close, 26)
+
+// إشارات الدخول والخروج
+emaCrossBuy  = ta.crossover(ema9, ema21)
+emaCrossSell = ta.crossunder(ema9, ema21)
+rsiBuy  = rsi < 30
+rsiSell = rsi > 70
+adxFilter = adx > 20
+macdFilter = macdLine > 0
+
+entryLong  = emaCrossBuy  and rsiBuy  and adxFilter and macdFilter
+entryShort = emaCrossSell and rsiSell and adxFilter and not macdFilter
+
+plotshape(entryLong, title="Buy", location=location.belowbar, color=color.green, style=shape.triangleup, size=size.small, text="شراء")
+plotshape(entryShort, title="Sell", location=location.abovebar, color=color.red, style=shape.triangledown, size=size.small, text="بيع")
+
+// ============ *** هنا تبدأ أوامر رسم المؤشرات على الشارت *** ============
+
+// EMA9 بالبرتقالي
+plot(ema9,  title="EMA9",  color=color.orange, linewidth=2)
+// EMA21 بالأزرق
+plot(ema21, title="EMA21", color=color.blue, linewidth=2)
+
+// تقدر تضيف أي مؤشر آخر بنفس الطريقة، لو حابب ترسم متوسطات أخرى أو MACD أو غيره
+// مثال: رسم السعر المتوسط (اختياري)
+// sma50 = ta.sma(close, 50)
+// plot(sma50, title="SMA50", color=color.aqua)
+
+// جدول توضيحي (كما في النسخة الأخيرة)
+showLegend = input.bool(true, "إظهار الجدول على يمين الشارت؟")
+var tbl = table.new(position.top_right, 5, 12, border_width=1)
+
+rowColor1   = color.new(color.white, 0)
+rowColor2   = color.new(color.silver, 0)
+headerColor = color.new(color.white, 0)
+
+if showLegend
+    table.cell(tbl, 0, 0, "دليل الفلاتر والمؤشرات", bgcolor=headerColor)
+    table.cell(tbl, 0, 1, "الفلتر", bgcolor=rowColor1)
+    table.cell(tbl, 1, 1, "القيمة", bgcolor=rowColor1)
+    table.cell(tbl, 2, 1, "الوصف", bgcolor=rowColor1)
+    table.cell(tbl, 0, 2, "EMA9/21", bgcolor=rowColor2)
+    table.cell(tbl, 1, 2, "تقاطع", bgcolor=rowColor2)
+    table.cell(tbl, 2, 2, "إشارة اتجاه قصيرة المدى", bgcolor=rowColor2)
+    table.cell(tbl, 0, 3, "RSI", bgcolor=rowColor2)
+    table.cell(tbl, 1, 3, "<30 أو >70", bgcolor=rowColor2)
+    table.cell(tbl, 2, 3, "تشبع شرائي/بيعي", bgcolor=rowColor2)
+    table.cell(tbl, 0, 4, "ADX", bgcolor=rowColor2)
+    table.cell(tbl, 1, 4, ">20", bgcolor=rowColor2)
+    table.cell(tbl, 2, 4, "قوة الاتجاه", bgcolor=rowColor2)
+    table.cell(tbl, 0, 5, "MACD", bgcolor=rowColor2)
+    table.cell(tbl, 1, 5, ">0", bgcolor=rowColor2)
+    table.cell(tbl, 2, 5, "تأكيد زخم", bgcolor=rowColor2)
+    // دليل الألوان
+    table.cell(tbl, 0, 6, "الدليل المفتاحى", bgcolor=headerColor)
+    table.cell(tbl, 0, 7, "اللون", bgcolor=rowColor1)
+    table.cell(tbl, 1, 7, "المؤشر", bgcolor=rowColor1)
+    table.cell(tbl, 2, 7, "الوصف", bgcolor=rowColor1)
+    table.cell(tbl, 0, 8, "برتقالي", bgcolor=color.orange)
+    table.cell(tbl, 1, 8, "EMA9")
+    table.cell(tbl, 2, 8, "متوسط قصير")
+    table.cell(tbl, 0, 9, "أزرق", bgcolor=color.blue)
+    table.cell(tbl, 1, 9, "EMA21")
+    table.cell(tbl, 2, 9, "متوسط طويل")
+
+// ========= النهاية =========

@@ -1,0 +1,111 @@
+//@version=6
+indicator("Smart Market Behavior Pro – v2.6 (for v6)", shorttitle="SMB Pro v2.6", overlay=true)
+
+// === استرجاع كود الإعدادات (Decode) ===
+settings_input = input.string("", title="استرجاع كود الإعدادات (20 خانة 0/1)", tooltip="أدخل هنا سلسلة من 20 رقمًا (0 أو 1) لاستعادة إعدادات محفوظة. مثال: 10110011010110011010")
+
+// دالة مساعدة لتطبيق الإعداد من السلسلة النصية
+f_apply_setting(index) =>
+    str.length(settings_input) >= index + 1 and str.substring(settings_input, index, index + 1) == "1"
+
+// --- متغيرات التحكم (Boolean Toggles) ---
+bool master_toggle        = f_apply_setting(0)
+bool show_stats_input     = f_apply_setting(2)
+bool stats_toggle         = f_apply_setting(3)
+bool show_vwap_input      = f_apply_setting(4)
+bool vwap_toggle          = f_apply_setting(5)
+bool show_obv_ad_input    = f_apply_setting(6)
+bool obv_toggle           = f_apply_setting(7)
+bool show_zones_input     = f_apply_setting(16)
+bool zones_toggle         = f_apply_setting(17)
+
+// === VWAP ===
+float vwap_value = ta.vwap(hlc3)
+plot(master_toggle and show_vwap_input and vwap_toggle ? vwap_value : na, title="VWAP", color=color.blue, linewidth=1)
+
+// === OBV و A/D ===
+float obv = ta.cum(close > close[1] ? volume : close < close[1] ? -volume : 0)
+float ad = ta.cum((high - low != 0) ? ((close - low) - (high - close)) / (high - low) * volume : 0)
+plot(master_toggle and show_obv_ad_input and obv_toggle ? obv : na, title="OBV", color=color.orange, display=display.data_window)
+plot(master_toggle and show_obv_ad_input and obv_toggle ? ad : na, title="A/D", color=color.aqua, display=display.data_window)
+
+// === مدخلات مناطق الطلب والعرض ===
+int pivotLeftBars = input.int(5, title="أشرطة اليسار للنقاط المحورية", group="مناطق الطلب والعرض", minval=1)
+int pivotRightBars = input.int(3, title="أشرطة اليمين للنقاط المحورية", group="مناطق الطلب والعرض", minval=1)
+int zoneExtensionBars = input.int(30, title="عدد أشرطة امتداد المنطقة", group="مناطق الطلب والعرض", minval=5)
+float atrMultiplierZone = input.float(1.0, title="مضاعف ATR لسمك المنطقة", group="مناطق الطلب والعرض", minval=0.1, step=0.1)
+int retestWindow = input.int(5, title="نافذة إعادة اختبار المنطقة (أشرطة)", group="مناطق الطلب والعرض", minval=1)
+
+// === مناطق الطلب والعرض + كسر واختبار ===
+var box demandBox = na
+var box supplyBox = na
+var float demandLevelTop = na, var float demandLevelBottom = na
+var float supplyLevelTop = na, var float supplyLevelBottom = na
+var bool brokenDemand = false, var bool brokenSupply = false
+var int demandBreakIndex = na, var int supplyBreakIndex = na
+var bool demandRetested = false, var bool supplyRetested = false
+var float retestDemandLevel = na, var float retestSupplyLevel = na
+
+float ph_val = ta.pivothigh(high, pivotLeftBars, pivotRightBars)
+float pl_val = ta.pivotlow(low, pivotLeftBars, pivotRightBars)
+
+if master_toggle and show_zones_input and zones_toggle
+    if not na(pl_val)
+        if not na(demandBox)
+            box.delete(demandBox)
+        demandLevelBottom := pl_val - (ta.atr(14)[pivotRightBars] * atrMultiplierZone * 0.5)
+        demandLevelTop    := pl_val + (ta.atr(14)[pivotRightBars] * atrMultiplierZone * 0.5)
+        demandBox := box.new(bar_index[pivotRightBars], demandLevelTop, bar_index[pivotRightBars] + zoneExtensionBars, demandLevelBottom, border_color=color.new(color.teal,0), bgcolor=color.new(color.teal, 85), text="طلب")
+        brokenDemand := false, demandRetested := false, demandBreakIndex := na
+    if not na(ph_val)
+        if not na(supplyBox)
+            box.delete(supplyBox)
+        supplyLevelBottom := ph_val - (ta.atr(14)[pivotRightBars] * atrMultiplierZone * 0.5)
+        supplyLevelTop    := ph_val + (ta.atr(14)[pivotRightBars] * atrMultiplierZone * 0.5)
+        supplyBox := box.new(bar_index[pivotRightBars], supplyLevelTop, bar_index[pivotRightBars] + zoneExtensionBars, supplyLevelBottom, border_color=color.new(color.maroon,0), bgcolor=color.new(color.maroon, 85), text="عرض")
+        brokenSupply := false, supplyRetested := false, supplyBreakIndex := na
+
+if not brokenDemand and not na(demandBox) and close < demandLevelBottom
+    brokenDemand := true, demandBreakIndex := bar_index
+    box.set_bgcolor(demandBox, color.new(color.red, 75))
+if brokenDemand and not demandRetested and not na(demandBox) and bar_index <= demandBreakIndex + retestWindow
+    if high >= demandLevelBottom
+        demandRetested := true, retestDemandLevel := demandLevelBottom
+        label.new(bar_index, demandLevelBottom, text="اختبار طلب مكسور", style=label.style_label_down, color=color.red, textcolor=color.white)
+if not brokenSupply and not na(supplyBox) and close > supplyLevelTop
+    brokenSupply := true, supplyBreakIndex := bar_index
+    box.set_bgcolor(supplyBox, color.new(color.green, 75))
+if brokenSupply and not supplyRetested and not na(supplyBox) and bar_index <= supplyBreakIndex + retestWindow
+    if low <= supplyLevelTop
+        supplyRetested := true, retestSupplyLevel := supplyLevelTop
+        label.new(bar_index, supplyLevelTop, text="اختبار عرض مكسور", style=label.style_label_up, color=color.green, textcolor=color.white)
+
+// === إحصائيات ===
+var int stat_demand_breaks = 0, var int stat_supply_breaks = 0
+var int stat_demand_retest_success = 0, var int stat_supply_retest_success = 0
+if brokenDemand and not brokenDemand[1]
+    stat_demand_breaks += 1
+if brokenSupply and not brokenSupply[1]
+    stat_supply_breaks += 1
+if demandRetested and not demandRetested[1]
+    if close > retestDemandLevel + ta.atr(14) * 0.5
+        stat_demand_retest_success +=1
+if supplyRetested and not supplyRetested[1]
+    if close < retestSupplyLevel - ta.atr(14) * 0.5
+        stat_supply_retest_success += 1
+demandSuccessRatio = stat_demand_breaks > 0 ? (stat_demand_retest_success * 100.0 / stat_demand_breaks) : na
+supplySuccessRatio = stat_supply_breaks > 0 ? (stat_supply_retest_success * 100.0 / stat_supply_breaks) : na
+
+// === ملخص رقمي ===
+var table summaryTable = table.new(position.top_right, 1, 1, border_width=1)
+if master_toggle and show_stats_input and stats_toggle and barstate.islast
+    string demandText = na(demandSuccessRatio) ? "لا توجد بيانات" : str.tostring(demandSuccessRatio, "#.##") + "%"
+    string supplyText = na(supplySuccessRatio) ? "لا توجد بيانات" : str.tostring(supplySuccessRatio, "#.##") + "%"
+    string summaryText = "📊 نجاح ارتداد الطلب: " + demandText + "\n📈 نجاح ارتداد العرض: " + supplyText
+    color bgColor = na
+    if not na(demandSuccessRatio) or not na(supplySuccessRatio)
+        float avgSuccess = (nz(demandSuccessRatio, 50) + nz(supplySuccessRatio, 50)) / (na(demandSuccessRatio) or na(supplySuccessRatio) ? 1.0 : 2.0)
+        bgColor := avgSuccess >= 70 ? color.new(color.green, 75) : avgSuccess >= 50 ? color.new(color.orange, 75) : color.new(color.red, 75)
+    else
+        bgColor := color.new(color.gray, 75)
+    table.cell(summaryTable, 0, 0, text=summaryText, text_color=color.white, bgcolor=bgColor, text_halign=text.align_left)

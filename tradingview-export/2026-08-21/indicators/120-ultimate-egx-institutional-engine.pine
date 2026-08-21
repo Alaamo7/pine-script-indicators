@@ -1,0 +1,98 @@
+//@version=6
+// ==================================================================================
+// Full Name: Ultimate EGX Institutional Engine (v6)
+// Author: علاء & Senior AI Coder
+// ⚙️ الإعدادات: دمج SMC Core مع Institutional Suite و MM Traps
+// ==================================================================================
+
+indicator("Ultimate EGX Institutional Engine", shorttitle="EGX_Inst_V6", overlay=true, max_lines_count=500, max_labels_count=500)
+
+// ============ 1. CONFIGURATIONS ============
+int   emaFastLen = 13    
+int   emaSlowLen = 30    
+float volMult    = 2.0   
+bool  showDash   = true
+
+// ============ 2. TREND & MOMENTUM ENGINE ============
+emaFast = ta.ema(close, emaFastLen)
+emaSlow = ta.ema(close, emaSlowLen)
+rsi     = ta.rsi(close, 14)
+[_, _, adx] = ta.dmi(14, 14)
+
+// ============ 3. SMC & LIQUIDITY LOGIC (Non-Repainting) ============
+ph = ta.pivothigh(high, 3, 3)
+pl = ta.pivotlow(low, 3, 3)
+var float lastHigh = na
+var float lastLow  = na
+if not na(ph)
+    lastHigh := ph
+if not na(pl)
+    lastLow  := pl
+
+// تأكيد الكسر مع إغلاق الشمعة فقط لمنع الـ Repaint
+bosUp   = ta.crossover(close, lastHigh) and barstate.isconfirmed
+bosDown = ta.crossunder(close, lastLow) and barstate.isconfirmed
+
+avgVol      = ta.sma(volume, 20)
+highVol     = volume > avgVol * volMult
+
+// تصحيح منطق فخاخ صانع السوق (Liquidity Sweeps)
+// الفخ البيعي: يضرب قمة سابقة ويفشل في الحفاظ عليها ويقفل على هبوط مع فوليوم عالي
+bearishTrap = high > high[1] and close < close[1] and highVol 
+// الفخ الشرائي: يضرب قاع سابق ويفشل ويكمل صعود مع فوليوم عالي
+bullishTrap = low < low[1] and close > close[1] and highVol 
+
+// ============ 4. SCORE SYSTEM ============
+int score = 0
+score += (close > emaSlow) ? 1 : 0
+score += (rsi > 50) ? 1 : 0
+score += (adx > 25) ? 1 : 0
+score += (volume > avgVol) ? 1 : 0
+score += (close > ta.vwap) ? 1 : 0 // ta.vwap anchors to session default, works perfect.
+
+string trendState = score >= 4 ? "صاعد بقوة" : score <= 1 ? "هابط بقوة" : "عرضي / محايد"
+color  scoreColor = score >= 4 ? color.green : score <= 1 ? color.red : color.gray
+
+// ============ 5. VISUAL LAYER ============
+plot(emaFast, "EMA 13", color=color.orange, display=display.pane)
+plot(emaSlow, "EMA 30", color=color.blue, linewidth=2, display=display.pane)
+
+plotshape(bosUp, "BOS Up", shape.triangleup, location.abovebar, color=color.green, size=size.small, display=display.pane)
+plotshape(bosDown, "BOS Down", shape.triangledown, location.belowbar, color=color.red, size=size.small, display=display.pane)
+
+plotshape(bullishTrap, "Buy Trap", shape.labelup, location.belowbar, color=color.lime, text="BUY\nTRAP", textcolor=color.black, size=size.tiny, display=display.pane)
+plotshape(bearishTrap, "Sell Trap", shape.labeldown, location.abovebar, color=color.red, text="SELL\nTRAP", textcolor=color.white, size=size.tiny, display=display.pane)
+
+// ============ 6. DASHBOARD (EGX Pro Standard) ============
+var table dash = table.new(position.top_right, 3, 6, bgcolor=color.new(color.black, 75), border_color=color.gray, border_width=1)
+
+if showDash and barstate.islast
+    // --- الصف 0: Spacer ---
+    table.cell(dash, 0, 0, "", height=3, bgcolor=color.new(color.black, 100))
+    table.cell(dash, 1, 0, "", height=3, bgcolor=color.new(color.black, 100))
+    table.cell(dash, 2, 0, "", height=3, bgcolor=color.new(color.black, 100))
+
+    // --- الصف 1: Header ---
+    table.cell(dash, 0, 1, "المعيار", text_color=color.white, bgcolor=color.new(color.blue, 40))
+    table.cell(dash, 1, 1, "القراءة الحالية", text_color=color.white, bgcolor=color.new(color.blue, 40))
+    table.cell(dash, 2, 1, "دليل العلامات (Legend)", text_color=color.white, bgcolor=color.new(color.blue, 40))
+    
+    // --- الصف 2: الاتجاه ---
+    table.cell(dash, 0, 2, "حالة الاتجاه", text_color=color.white)
+    table.cell(dash, 1, 2, trendState + " (" + str.tostring(score) + "/5)", text_color=scoreColor)
+    table.cell(dash, 2, 2, "🟧 EMA 13 | 🟦 EMA 30", text_color=color.white) 
+
+    // --- الصف 3: الزخم ---
+    table.cell(dash, 0, 3, "قوة الزخم (ADX)", text_color=color.white)
+    table.cell(dash, 1, 3, str.tostring(adx, "#.#"), text_color=adx > 25 ? color.green : color.gray)
+    table.cell(dash, 2, 3, "ترند قوي > 25", text_color=color.gray)
+
+    // --- الصف 4: الهيكل ---
+    table.cell(dash, 0, 4, "هيكل السوق (BOS)", text_color=color.white)
+    table.cell(dash, 1, 4, bosUp ? "اختراق صاعد" : bosDown ? "كسر هابط" : "مستقر", text_color=bosUp ? color.green : bosDown ? color.red : color.gray)
+    table.cell(dash, 2, 4, "أخضر: صاعد | أحمر: هابط", text_color=color.white) 
+
+    // --- الصف 5: السيولة ---
+    table.cell(dash, 0, 5, "فخاخ السيولة", text_color=color.white)
+    table.cell(dash, 1, 5, bullishTrap ? "فخ شرائي" : bearishTrap ? "فخ بيعي" : "طبيعي", text_color=bullishTrap ? color.lime : bearishTrap ? color.red : color.gray)
+    table.cell(dash, 2, 5, "🟢 فخ شراء | 🔴 فخ بيع", text_color=color.white)

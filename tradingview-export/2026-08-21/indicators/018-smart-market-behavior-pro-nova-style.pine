@@ -1,0 +1,47 @@
+//@version=6
+indicator("Smart Market Behavior Pro – Nova Style", overlay=true, max_lines_count=500)
+
+// ========== إعدادات تحكم ==========
+show_trend_table = input.bool(true, "إظهار جدول الاتجاهات")
+show_tp_levels = input.bool(true, "إظهار TP1 و TP2")
+emaLength = input.int(50, "طول EMA", minval=1)
+
+// ========== المتوسط المتحرك EMA ==========
+ema = ta.ema(close, emaLength)
+plot(ema, color=color.fuchsia, title="EMA")
+
+// ========== مؤشر RSI ==========
+rsi = ta.rsi(close, 14)
+
+// ========== زخم ومؤشرات وهمية ==========
+momentum = close - close[1]
+volatility = ta.stdev(close, 10)
+volume_state = volume > ta.sma(volume, 20) ? 1 : -1
+
+// ========== إشارات شراء وبيع مبدئية ==========
+buySignal = ta.crossover(close, ema) and rsi < 30
+sellSignal = ta.crossunder(close, ema) and rsi > 70
+plotshape(buySignal, location=location.belowbar, color=color.green, style=shape.labelup, text="Buy")
+plotshape(sellSignal, location=location.abovebar, color=color.red, style=shape.labeldown, text="Sell")
+
+// ========== TP Levels ==========
+tp1 = close * 1.01
+tp2 = close * 1.02
+plot(show_tp_levels and buySignal ? tp1 : na, style=plot.style_cross, color=color.green, title="TP1")
+plot(show_tp_levels and buySignal ? tp2 : na, style=plot.style_cross, color=color.lime, title="TP2")
+
+// ========== جدول الاتجاهات ==========
+var table trendTable = table.new(position.top_right, 1, 6, border_width=1)
+trend = ema > ema[1] ? "Bullish" : "Bearish"
+momo = momentum > 0 ? "Bullish" : "Bearish"
+vol = volatility > ta.sma(volatility, 10) ? "High" : "Low"
+volState = volume_state > 0 ? "High" : "Low"
+emaPos = close > ema ? "Above" : "Below"
+
+if show_trend_table
+    table.cell(trendTable, 0, 0, "RSI: " + str.tostring(rsi, "#.##"), text_color=color.white)
+    table.cell(trendTable, 0, 1, "Trend: " + trend, text_color=trend == "Bullish" ? color.green : color.red)
+    table.cell(trendTable, 0, 2, "Momentum: " + momo, text_color=momo == "Bullish" ? color.green : color.red)
+    table.cell(trendTable, 0, 3, "Volatility: " + vol, text_color=color.orange)
+    table.cell(trendTable, 0, 4, "Volume: " + volState, text_color=color.new(color.blue, 0))
+    table.cell(trendTable, 0, 5, "EMA: " + emaPos, text_color=emaPos == "Above" ? color.green : color.red)

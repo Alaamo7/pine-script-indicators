@@ -1,0 +1,92 @@
+//@version=5
+indicator("Swing Trader Template - Smart EGX v2.1 (Corrected v4)", overlay=true, max_lines_count=500, max_labels_count=500)
+
+// === إعدادات الظهور ===
+showRSI             = input.bool(true, title="📈 إظهار RSI")
+showVolume          = input.bool(false, title="📊 إظهار الحجم")
+showSupportResistance = input.bool(true, title="📌 إظهار الدعم والمقاومة اليدوية")
+
+// === المتوسطات المتحركة ===
+ema9   = ta.ema(close, 9)
+ema21  = ta.ema(close, 21)
+sma50  = ta.sma(close, 50)
+sma200 = ta.sma(close, 200)
+
+plot(ema9, color=color.orange, linewidth=1, title="EMA 9")
+plot(ema21, color=color.blue, linewidth=1, title="EMA 21")
+plot(sma50, color=color.gray, linewidth=1, title="SMA 50")
+plot(sma200, color=color.black, linewidth=1, title="SMA 200")
+
+// === مؤشر RSI ===
+rsi = ta.rsi(close, 14)
+rsiOverbought = 70
+rsiOversold = 30
+
+hline(rsiOverbought, "RSI Overbought", color=color.red, display=showRSI ? display.all : display.none)
+hline(50, "RSI Mid", color=color.gray, display=showRSI ? display.all : display.none)
+hline(rsiOversold, "RSI Oversold", color=color.green, display=showRSI ? display.all : display.none)
+plot(showRSI ? rsi : na, title="RSI", color=color.purple, linewidth=2, display=display.pane)
+
+// === الحجم ===
+plot(showVolume ? volume : na, title="الحجم", color=color.teal, style=plot.style_columns, display=display.pane)
+
+// === دعم ومقاومة يدوي ===
+resistanceLevel = input.float(0.0, title="مستوى المقاومة (اختياري)")
+supportLevel    = input.float(0.0, title="مستوى الدعم (اختياري)")
+
+plot(showSupportResistance and resistanceLevel != 0 ? resistanceLevel : na, title="المقاومة", color=color.red, linewidth=2)
+plot(showSupportResistance and supportLevel != 0 ? supportLevel : na, title="الدعم", color=color.green, linewidth=2)
+
+// === اتجاه السهم ===
+up_condition = ema9 > ema21 and ema21 > sma50
+down_condition = ema9 < ema21 and ema21 < sma50
+sideways_condition = math.abs(ema9 - ema21) < (close * 0.005)
+
+is_up_trend_active = up_condition
+is_down_trend_active = down_condition and not is_up_trend_active
+is_sideways_trend_active = sideways_condition and not is_up_trend_active and not is_down_trend_active
+
+bgcolor(is_up_trend_active ? color.new(color.green, 85) : na, title="خلفية اتجاه صاعد")
+bgcolor(is_down_trend_active ? color.new(color.red, 85) : na, title="خلفية اتجاه هابط")
+bgcolor(is_sideways_trend_active ? color.new(color.yellow, 85) : na, title="خلفية اتجاه عرضي")
+
+barcolor(is_up_trend_active ? color.green : is_down_trend_active ? color.red : is_sideways_trend_active ? color.orange : na)
+
+// === إشارة شراء — تقاطع إيجابي + RSI < 60 + السعر فوق SMA50 ===
+buySignal = ta.crossover(ema9, ema21) and rsi < 60 and close > sma50
+plotshape(buySignal, title="إشارة شراء", location=location.belowbar, color=color.green, style=shape.labelup, text="BUY")
+
+// === تنبيه للإشارة ===
+alertcondition(buySignal, title="تنبيه إشارة شراء", message="📢 إشارة شراء على الشارت - تقاطع EMA مع RSI")
+
+// === الدليل المفتاحي على الشارت ===
+// تعريف نص الوسم في متغير منفصل لتبسيط استدعاء label.new
+var string g_keyLabelText =
+     "دليل الألوان:\n" +
+     "EMA 9: برتقالي\n" +
+     "EMA 21: أزرق\n" +
+     "SMA 50: رمادي\n" +
+     "SMA 200: أسود\n" +
+     "RSI: بنفسجي\n" +
+     "مقاومة: أحمر\n" +
+     "دعم: أخضر\n" +
+     "خلفية خضراء: اتجاه صاعد\n" +
+     "خلفية حمراء: اتجاه هابط\n" +
+     "خلفية صفراء: اتجاه عرضي\n" +
+     "BUY: إشارة شراء" // لا تحتاج فاصلة هنا لأن هذا تعريف متغير
+
+var label g_keyLabel = na // تعريف متغير الوسم مرة واحدة
+
+if (barstate.islast) // يُنفذ فقط على آخر شمعة (الحالية) في الرسم البياني
+    label.delete(g_keyLabel) // حذف المثيل السابق للوسم
+    // الرجاء التأكد من أن المسافات البادئة للأسطر التالية صحيحة (مسافات فقط)
+    g_keyLabel := label.new( // السطر الذي يبدأ فيه استدعاء label.new
+        // الوسائط التالية يجب أن تكون مزاحة لليمين (indented) أكثر من السطر أعلاه
+        x = bar_index,
+        y = high,
+        text = g_keyLabelText, // استخدام النص المُعد مسبقًا
+        style = label.style_label_left,
+        color = color.new(color.gray, 20),
+        textcolor = color.white,
+        size = size.small // الوسيط الأخير لا يحتاج إلى فاصلة بعده
+    ) // هذا القوس الختامي يجب أن يكون مزاحًا ليتماشى مع بداية السطر 'g_keyLabel :='

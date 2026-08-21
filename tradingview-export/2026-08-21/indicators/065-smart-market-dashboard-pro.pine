@@ -1,0 +1,102 @@
+//@version=6
+indicator("Smart Market Dashboard Pro", overlay=true)
+
+// ==== حساب المؤشرات كلها ====
+
+// EMAs
+ema8 = ta.ema(close, 8)
+ema21 = ta.ema(close, 21)
+sma50 = ta.sma(close, 50)
+ema200 = ta.ema(close, 200)
+
+// Bollinger Bands
+basis = ta.sma(close, 20)
+dev = 2 * ta.stdev(close, 20)
+upper = basis + dev
+lower = basis - dev
+
+// VWAP
+vwapVal = ta.vwap(hlc3)
+
+// Ichimoku
+donchian(len) => (ta.highest(len) + ta.lowest(len)) / 2
+conversionLine = donchian(9)
+baseLine = donchian(26)
+leadLine1 = (conversionLine + baseLine) / 2
+leadLine2 = donchian(52)
+
+// RSI
+rsiLength = 14
+rsi = ta.rsi(close, rsiLength)
+
+// MACD
+fastLength = 12
+slowLength = 26
+signalLength = 9
+[macdLine, signalLine, histLine] = ta.macd(close, fastLength, slowLength, signalLength)
+
+// ==== جدول البيانات والدليل المفتاحي ====
+
+// 9 مؤشرات + صف فاصل + صف الدليل = 11 صف
+var table dashboard = table.new(position.top_right, 3, 11, border_width=1)
+
+if barstate.islast
+    // عناوين الأعمدة
+    table.cell(dashboard, 0, 0, "المؤشر", bgcolor=color.black, text_color=color.white)
+    table.cell(dashboard, 1, 0, "القيمة", bgcolor=color.black, text_color=color.white)
+    table.cell(dashboard, 2, 0, "الوضع", bgcolor=color.black, text_color=color.white)
+
+    // EMA 8 vs EMA 21
+    emaTrend = ema8 > ema21 ? "صاعد" : ema8 < ema21 ? "هابط" : "محايد"
+    table.cell(dashboard, 0, 1, "EMA 8/21")
+    table.cell(dashboard, 1, 1, str.tostring(ema8, format.mintick))
+    table.cell(dashboard, 2, 1, emaTrend, text_color=emaTrend=="صاعد"?color.green:emaTrend=="هابط"?color.red:color.gray)
+
+    // SMA 50
+    table.cell(dashboard, 0, 2, "SMA 50")
+    table.cell(dashboard, 1, 2, str.tostring(sma50, format.mintick))
+    table.cell(dashboard, 2, 2, close > sma50 ? "فوق" : "تحت", text_color=close > sma50 ? color.green : color.red)
+
+    // EMA 200
+    table.cell(dashboard, 0, 3, "EMA 200")
+    table.cell(dashboard, 1, 3, str.tostring(ema200, format.mintick))
+    table.cell(dashboard, 2, 3, close > ema200 ? "فوق" : "تحت", text_color=close > ema200 ? color.green : color.red)
+
+    // VWAP
+    table.cell(dashboard, 0, 4, "VWAP")
+    table.cell(dashboard, 1, 4, str.tostring(vwapVal, format.mintick))
+    table.cell(dashboard, 2, 4, close > vwapVal ? "فوق" : "تحت", text_color=close > vwapVal ? color.green : color.red)
+
+    // Bollinger Bands
+    table.cell(dashboard, 0, 5, "Bollinger")
+    table.cell(dashboard, 1, 5, str.tostring(basis, format.mintick))
+    table.cell(dashboard, 2, 5, close > upper ? "اختراق" : close < lower ? "كسر" : "داخل", 
+      text_color=close > upper ? color.green : close < lower ? color.red : color.gray)
+
+    // RSI
+    table.cell(dashboard, 0, 6, "RSI")
+    table.cell(dashboard, 1, 6, str.tostring(rsi, format.mintick))
+    table.cell(dashboard, 2, 6, rsi > 70 ? "تشبع شرائي" : rsi < 30 ? "تشبع بيعي" : "محايد", 
+      text_color=rsi > 70 ? color.red : rsi < 30 ? color.green : color.gray)
+
+    // MACD
+    macdState = macdLine > signalLine ? "صعودي" : macdLine < signalLine ? "هبوطي" : "محايد"
+    table.cell(dashboard, 0, 7, "MACD")
+    table.cell(dashboard, 1, 7, str.tostring(macdLine, format.mintick))
+    table.cell(dashboard, 2, 7, macdState, text_color=macdState=="صعودي"?color.green:macdState=="هبوطي"?color.red:color.gray)
+
+    // Ichimoku
+    ichiState = leadLine1 > leadLine2 ? "إيجابي" : "سلبي"
+    table.cell(dashboard, 0, 8, "Ichimoku")
+    table.cell(dashboard, 1, 8, str.tostring(leadLine1, format.mintick))
+    table.cell(dashboard, 2, 8, ichiState, text_color=ichiState=="إيجابي"?color.green:color.red)
+
+    // صف فاصل جمالي (لون غامق)
+    table.cell(dashboard, 0, 9, "", bgcolor=color.rgb(30,30,30))
+    table.cell(dashboard, 1, 9, "", bgcolor=color.rgb(30,30,30))
+    table.cell(dashboard, 2, 9, "", bgcolor=color.rgb(30,30,30))
+
+    // صف الدليل المفتاحي - شرح الألوان في صف أفقي بأسفل الجدول
+    table.cell(dashboard, 0, 10, "🟢 صعودي / إيجابي", bgcolor=color.black, text_color=color.green, text_halign=text.align_center)
+    table.cell(dashboard, 1, 10, "🔴 هبوطي / سلبي", bgcolor=color.black, text_color=color.red, text_halign=text.align_center)
+    table.cell(dashboard, 2, 10, "⚪ محايد", bgcolor=color.black, text_color=color.gray, text_halign=text.align_center)

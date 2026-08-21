@@ -1,0 +1,64 @@
+//@version=6
+strategy("Day Trading MA + Volume + Time Filter (Pro Version)", overlay=true, default_qty_type=strategy.percent_of_equity, default_qty_value=10)
+
+// إعداد المتوسطات
+fast_length = input.int(9, title="Fast MA Length")
+slow_length = input.int(21, title="Slow MA Length")
+trend_ema_length = input.int(200, title="Trend Filter EMA")
+fast_ma = ta.sma(close, fast_length)
+slow_ma = ta.sma(close, slow_length)
+trend_ema = ta.ema(close, trend_ema_length)
+
+// فلترة الحجم
+volume_threshold = input.int(100000, title="Min Volume")
+volume_filter = volume > volume_threshold
+
+// فلترة RSI
+rsi_length = input.int(14, title="RSI Length")
+rsi_overbought = input.int(70, title="RSI Overbought")
+rsi_oversold = input.int(30, title="RSI Oversold")
+rsi = ta.rsi(close, rsi_length)
+rsi_filter_long = rsi < rsi_overbought
+rsi_filter_short = rsi > rsi_oversold
+
+// توقيت الجلسة
+dayofweek_filter = (dayofweek >= dayofweek.sunday and dayofweek <= dayofweek.thursday)
+sess_start = timestamp("GMT+2", year, month, dayofmonth, 10, 0)
+sess_end   = timestamp("GMT+2", year, month, dayofmonth, 14, 30)
+in_session = (time >= sess_start and time <= sess_end) and dayofweek_filter
+
+// شروط الدخول
+longCondition = ta.crossover(fast_ma, slow_ma) and volume_filter and rsi_filter_long and in_session and close > slow_ma and close > trend_ema
+shortCondition = ta.crossunder(fast_ma, slow_ma) and volume_filter and rsi_filter_short and in_session and close < slow_ma and close < trend_ema
+
+// الدخول شراء
+if longCondition and strategy.opentrades == 0
+    strategy.entry("Long", strategy.long)
+    entryTime = time
+
+// الدخول بيع
+if shortCondition and strategy.opentrades == 0
+    strategy.entry("Short", strategy.short)
+    entryTime = time
+
+// الخروج بعد 3 شمعات (زمنيًا)
+maxBarsInTrade = 3
+exitCondition = strategy.opentrades > 0 and (bar_index - strategy.opentrades.entry_bar_index(0) >= maxBarsInTrade)
+if exitCondition
+    strategy.close("Long")
+    strategy.close("Short")
+
+// الخروج من شراء عند تقاطع عكسي
+if ta.crossunder(fast_ma, slow_ma)
+    strategy.close("Long")
+
+// الخروج من بيع عند تقاطع عكسي
+if ta.crossover(fast_ma, slow_ma)
+    strategy.close("Short")
+
+// رسم المؤشرات
+plot(fast_ma, color=color.green, linewidth=1, title="Fast MA")
+plot(slow_ma, color=color.red, linewidth=1, title="Slow MA")
+plot(trend_ema, color=color.orange, linewidth=1, title="Trend EMA 200")
+plotshape(longCondition, location=location.belowbar, color=color.green, style=shape.triangleup, title="Buy Signal")
+plotshape(shortCondition, location=location.abovebar, color=color.red, style=shape.triangledown, title="Sell Signal")

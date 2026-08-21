@@ -1,0 +1,93 @@
+//@version=6
+indicator("📊 EGX Pro Matrix + Risk Manager", overlay=true, max_labels_count=500)
+
+// ==========================================
+// 1. Inputs (الإعدادات)
+// ==========================================
+groupMTF     = "🌍 فلتر الفريم الأكبر (MTF)"
+htfRes       = input.timeframe("240", "اختر الفريم الأكبر للتأكيد", group=groupMTF)
+useMTFFilter = input.bool(true, "تفعيل فلتر الاتجاه الأكبر؟", group=groupMTF)
+
+groupRisk    = "💰 إدارة المخاطر (Calculator)"
+capital      = input.float(100000, "إجمالي رأس المال (EGP)", minval=1, group=groupRisk)
+riskPerc     = input.float(2.0, "نسبة المخاطرة لكل صفقة (%)", minval=0.1, maxval=20, step=0.5, group=groupRisk)
+
+groupLevels  = "🎯 إعدادات المستويات"
+offset       = input.int(10, "إزاحة الملصقات لليمين", group=groupLevels)
+
+// ==========================================
+// 2. Logic & Calculations (الحسابات الفنية)
+// ==========================================
+// جلب مستويات السيولة (Pivot Points)
+pHigh = request.security(syminfo.tickerid, "D", high[1], lookahead=barmerge.lookahead_on)
+pLow  = request.security(syminfo.tickerid, "D", low[1], lookahead=barmerge.lookahead_on)
+pClose= request.security(syminfo.tickerid, "D", close[1], lookahead=barmerge.lookahead_on)
+
+pivot = (pHigh + pLow + pClose) / 3
+r1 = (2 * pivot) - pLow
+r2 = pivot + (pHigh - pLow)
+s1 = (2 * pivot) - pHigh
+s2 = pivot - (pHigh - pLow) // هذا هو مستوى وقف الخسارة الافتراضي
+
+// حسابات إدارة المخاطر
+riskAmount   = capital * (riskPerc / 100)
+riskPerShare = math.abs(close - s2)
+// تأكد من عدم القسمة على صفر وحساب الكمية
+posSize      = riskPerShare > 0 ? math.floor(riskAmount / riskPerShare) : 0
+totalCost    = posSize * close
+
+// فلتر الاتجاه (MTF)
+htfTrendBull = request.security(syminfo.tickerid, htfRes, close > ta.ema(close, 50), lookahead=barmerge.lookahead_on)
+htfTrendBear = request.security(syminfo.tickerid, htfRes, close < ta.ema(close, 50), lookahead=barmerge.lookahead_on)
+
+// الإشارات
+ema50 = ta.ema(close, 50)
+localBuy  = ta.crossover(close, pivot) and close > ema50
+buySignal = useMTFFilter ? (localBuy and htfTrendBull) : localBuy
+
+// ==========================================
+// 3. Drawing Layer (الرسم)
+// ==========================================
+plot(ema50, color=color.new(color.aqua, 0), title="مسار السيولة")
+plotshape(buySignal, "دخول مؤكد", shape.triangleup, location.belowbar, color.lime, size=size.small, text="دخول")
+
+// ملصقات الأسعار (Price Labels)
+f_drawLabel(_price, _text, _color) =>
+    var label lbl = na
+    if barstate.islast
+        label.delete(lbl)
+        lbl := label.new(bar_index + offset, _price, _text + ": " + str.tostring(_price, "#.##"), color=_color, textcolor=color.white, style=label.style_label_left)
+
+f_drawLabel(r2, "🚀 مستهدف 2", color.rgb(255, 50, 50))
+f_drawLabel(pivot, "⚖️ ميزان السوق", color.rgb(41, 98, 255))
+f_drawLabel(s2, "🛑 وقف الخسارة", color.rgb(56, 142, 60))
+
+// ==========================================
+// 4. Professional Dashboard (الداشبورد المطور)
+// ==========================================
+var table dash = table.new(position.top_right, 2, 8, border_width=1, frame_color=color.gray, border_color=color.gray)
+
+if barstate.islast
+    // قسم حالة السوق
+    table.cell(dash, 0, 0, "المنظومة الذكية", bgcolor=color.black, text_color=color.white)
+    table.cell(dash, 1, 0, syminfo.ticker, bgcolor=color.black, text_color=color.yellow)
+    
+    table.cell(dash, 0, 1, "الاتجاه (MTF):", bgcolor=color.rgb(30, 30, 30), text_color=color.white, text_halign=text.align_right)
+    table.cell(dash, 1, 1, htfTrendBull ? "صاعد 📈" : "هابط 📉", bgcolor=htfTrendBull ? color.teal : color.maroon, text_color=color.white)
+
+    // قسم حاسبة المخاطر (Risk Calculator)
+    table.cell(dash, 0, 2, "--- إدارة المخاطر ---", bgcolor=color.rgb(20, 20, 20), text_color=color.gray)
+    table.merge_cells(dash, 0, 2, 1, 2)
+
+    table.cell(dash, 0, 3, "المخاطرة المالية:", bgcolor=color.rgb(30, 30, 30), text_color=color.white, text_halign=text.align_right)
+    table.cell(dash, 1, 3, str.tostring(riskAmount, "#,###") + " EGP", bgcolor=color.rgb(30, 30, 30), text_color=color.orange)
+
+    table.cell(dash, 0, 4, "الكمية المقترحة:", bgcolor=color.rgb(30, 30, 30), text_color=color.white, text_halign=text.align_right)
+    table.cell(dash, 1, 4, str.tostring(posSize, "#,###") + " سهم", bgcolor=color.blue, text_color=color.white)
+
+    table.cell(dash, 0, 5, "تكلفة الصفقة:", bgcolor=color.rgb(30, 30, 30), text_color=color.white, text_halign=text.align_right)
+    table.cell(dash, 1, 5, str.tostring(totalCost, "#,###") + " EGP", bgcolor=color.rgb(30, 30, 30), text_color=color.white)
+
+    // القرار النهائي
+    table.cell(dash, 0, 6, "القرار النهائي:", bgcolor=color.black, text_color=color.yellow, text_halign=text.align_right)
+    table.cell(dash, 1, 6, buySignal ? "دخول شراء ✅" : "انتظار ⏳", bgcolor=buySignal ? color.green : color.rgb(50, 50, 50), text_color=color.white)

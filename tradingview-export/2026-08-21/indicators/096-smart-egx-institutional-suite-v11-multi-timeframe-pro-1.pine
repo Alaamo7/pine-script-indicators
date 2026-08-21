@@ -1,0 +1,376 @@
+//@version=6
+indicator("Smart EGX Institutional Suite v11 – Multi-Timeframe Pro", overlay=true, max_boxes_count=150, max_lines_count=150, max_labels_count=150)
+
+//====================================================
+// 1) Core Settings
+//====================================================
+groupCore = "1) Core Settings"
+
+mobileMode      = input.bool(true,  "Mobile Mode", group=groupCore)
+showDashboard   = input.bool(true,  "Show Dashboard", group=groupCore)
+showLegend      = input.bool(true,  "Show Legend Inside Dashboard", group=groupCore)
+showSignals     = input.bool(true,  "Show Signals", group=groupCore)
+showBackgrounds = input.bool(true,  "Show Trap Backgrounds", group=groupCore)
+showVWAP        = input.bool(true,  "Show VWAP", group=groupCore)
+showMACDInfo    = input.bool(true,  "Show MACD In Dashboard", group=groupCore)
+
+dashPosOpt = input.string("Top Right", "Dashboard Position", options=["Top Right", "Top Left", "Bottom Right", "Bottom Left"], group=groupCore)
+
+f_pos(_p) =>
+    _p == "Top Left" ? position.top_left :
+     _p == "Bottom Right" ? position.bottom_right :
+     _p == "Bottom Left" ? position.bottom_left :
+     position.top_right
+
+dashPos  = f_pos(dashPosOpt)
+txtTitle = mobileMode ? size.small : size.normal
+txtCell  = mobileMode ? size.tiny  : size.small
+
+//====================================================
+// 2) Profile / User Type
+//====================================================
+groupProfile = "2) Profile / User Type"
+
+userType = input.string("Day Trader", "User Type", options=["Scalper", "Day Trader", "Swing Trader", "Investor"], group=groupProfile)
+
+f_profile(_type) =>
+    int rsiLen_     = _type == "Scalper" ? 7  : _type == "Day Trader" ? 14 : _type == "Swing Trader" ? 14 : 21
+    int adxLen_     = _type == "Scalper" ? 7  : _type == "Day Trader" ? 14 : _type == "Swing Trader" ? 14 : 21
+    int pivotLen_   = _type == "Scalper" ? 3  : _type == "Day Trader" ? 5  : _type == "Swing Trader" ? 7  : 9
+    int sweepLb_    = _type == "Scalper" ? 10 : _type == "Day Trader" ? 20 : _type == "Swing Trader" ? 30 : 40
+    float wickThr_  = _type == "Scalper" ? 0.35 : _type == "Day Trader" ? 0.40 : _type == "Swing Trader" ? 0.45 : 0.50
+    [rsiLen_, adxLen_, pivotLen_, sweepLb_, wickThr_]
+
+[rsiLen, adxLen, pivotLen, sweepLookback, wickThreshold] = f_profile(userType)
+
+//====================================================
+// 3) EGX Pack
+//====================================================
+groupEGX = "3) EGX Pack"
+
+showEGXPack = input.bool(true, "Show EGX Pack", group=groupEGX)
+barsPerSession = input.int(24, "Bars Per Session (EGX Logic)", minval=1, group=groupEGX)
+
+ema13EG  = ta.ema(close, math.min(math.round(13  * barsPerSession), 4999))
+ema30EG  = ta.ema(close, math.min(math.round(30  * barsPerSession), 4999))
+ema72EG  = ta.ema(close, math.min(math.round(72  * barsPerSession), 4999))
+ema144EG = ta.ema(close, math.min(math.round(144 * barsPerSession), 4999))
+ema288EG = ta.ema(close, math.min(math.round(288 * barsPerSession), 4999))
+vwapVal  = ta.vwap(hlc3)
+
+plot(showEGXPack ? ema13EG  : na, "EMA13 EGX",  color=color.orange, linewidth=2)
+plot(showEGXPack ? ema30EG  : na, "EMA30 EGX",  color=color.blue, linewidth=2)
+plot(showEGXPack ? ema72EG  : na, "EMA72 EGX",  color=color.teal, linewidth=1)
+plot(showEGXPack ? ema144EG : na, "EMA144 EGX", color=color.fuchsia, linewidth=1)
+plot(showEGXPack ? ema288EG : na, "EMA288 EGX", color=color.gray, linewidth=2)
+plot(showVWAP and showEGXPack ? vwapVal : na, "VWAP", color=color.yellow, linewidth=2)
+
+//====================================================
+// 4) Momentum / Volume
+//====================================================
+groupMomentum = "4) Momentum / Volume"
+
+volLen          = input.int(20, "Volume MA Length", group=groupMomentum, minval=1)
+volSpikeMult    = input.float(1.8, "Volume Spike Multiplier", group=groupMomentum, minval=1.0, step=0.1)
+adxStrongLevel  = input.float(20.0, "ADX Strong Threshold", group=groupMomentum, minval=1.0, step=0.5)
+rsiBullLevel    = input.float(55.0, "RSI Bull Level", group=groupMomentum, minval=1.0, step=0.5)
+rsiBearLevel    = input.float(45.0, "RSI Bear Level", group=groupMomentum, minval=1.0, step=0.5)
+
+rsiVal = ta.rsi(close, rsiLen)
+[plusDI, minusDI, adxVal] = ta.dmi(adxLen, adxLen)
+[macdLine, macdSignal, macdHist] = ta.macd(close, 12, 26, 9)
+
+volMA        = ta.sma(volume, volLen)
+volumeSpike  = volume > volMA * volSpikeMult
+climaxVolume = volumeSpike and math.abs(close - open) / math.max(high - low, syminfo.mintick) > 0.60
+
+momentumBull = rsiVal > rsiBullLevel and plusDI > minusDI and adxVal > adxStrongLevel and macdLine > macdSignal
+momentumBear = rsiVal < rsiBearLevel and minusDI > plusDI and adxVal > adxStrongLevel and macdLine < macdSignal
+
+//====================================================
+// 5) Structure / SMC Lite
+//====================================================
+groupStructure = "5) Structure / SMC Lite"
+
+ph = ta.pivothigh(high, pivotLen, pivotLen)
+pl = ta.pivotlow(low, pivotLen, pivotLen)
+
+var float lastSwingHigh = na
+var float lastSwingLow  = na
+var float prevSwingHigh = na
+var float prevSwingLow  = na
+var int structureDir = 0  // 1 bullish / -1 bearish / 0 neutral
+
+if not na(ph)
+    prevSwingHigh := lastSwingHigh
+    lastSwingHigh := ph
+
+if not na(pl)
+    prevSwingLow := lastSwingLow
+    lastSwingLow := pl
+
+bosUp   = not na(lastSwingHigh) and close > lastSwingHigh and close[1] <= lastSwingHigh
+bosDown = not na(lastSwingLow)  and close < lastSwingLow  and close[1] >= lastSwingLow
+
+chochUp   = bosUp and structureDir == -1
+chochDown = bosDown and structureDir == 1
+
+if bosUp
+    structureDir := 1
+else if bosDown
+    structureDir := -1
+
+equalHigh = not na(lastSwingHigh) and not na(prevSwingHigh) and math.abs(lastSwingHigh - prevSwingHigh) <= ta.atr(14) * 0.15
+equalLow  = not na(lastSwingLow)  and not na(prevSwingLow)  and math.abs(lastSwingLow  - prevSwingLow)  <= ta.atr(14) * 0.15
+
+structureText =
+     chochUp   ? "CHoCH Up"
+   : chochDown ? "CHoCH Down"
+   : bosUp     ? "BOS Up"
+   : bosDown   ? "BOS Down"
+   : structureDir == 1 ? "Bullish Structure"
+   : structureDir == -1 ? "Bearish Structure"
+   : "Neutral"
+
+//====================================================
+// 6) Liquidity / Traps
+//====================================================
+groupLiquidity = "6) Liquidity / Traps"
+
+prevHigh = ta.highest(high[1], sweepLookback)
+prevLow  = ta.lowest(low[1],  sweepLookback)
+
+sweepHigh = high > prevHigh and close < prevHigh
+sweepLow  = low < prevLow and close > prevLow
+
+upperWick = high - math.max(close, open)
+lowerWick = math.min(close, open) - low
+barRange  = math.max(high - low, syminfo.mintick)
+
+upperWickPct = upperWick / barRange
+lowerWickPct = lowerWick / barRange
+
+bullTrap = sweepHigh and volumeSpike and upperWickPct > wickThreshold
+bearTrap = sweepLow  and volumeSpike and lowerWickPct > wickThreshold
+
+bgBullTrap = showBackgrounds and bullTrap ? color.new(color.red, 88) : na
+bgBearTrap = showBackgrounds and bearTrap ? color.new(color.lime, 88) : na
+bgcolor(bgBullTrap)
+bgcolor(bgBearTrap)
+
+//====================================================
+// 7) MTF Pro Context
+//====================================================
+groupMTF = "7) MTF Pro Context"
+
+htf1 = input.timeframe("60",  "Higher TF 1", group=groupMTF)
+htf2 = input.timeframe("240", "Higher TF 2", group=groupMTF)
+
+htf1Bias = request.security(
+     syminfo.tickerid,
+     htf1,
+     close > ta.ema(close, 21) and ta.ema(close, 21) > ta.ema(close, 50) ? 1 :
+     close < ta.ema(close, 21) and ta.ema(close, 21) < ta.ema(close, 50) ? -1 : 0,
+     gaps=barmerge.gaps_off,
+     lookahead=barmerge.lookahead_off)
+
+htf2Bias = request.security(
+     syminfo.tickerid,
+     htf2,
+     close > ta.ema(close, 21) and ta.ema(close, 21) > ta.ema(close, 50) ? 1 :
+     close < ta.ema(close, 21) and ta.ema(close, 21) < ta.ema(close, 50) ? -1 : 0,
+     gaps=barmerge.gaps_off,
+     lookahead=barmerge.lookahead_off)
+
+htf1Rsi = request.security(syminfo.tickerid, htf1, ta.rsi(close, 14), gaps=barmerge.gaps_off, lookahead=barmerge.lookahead_off)
+htf2Rsi = request.security(syminfo.tickerid, htf2, ta.rsi(close, 14), gaps=barmerge.gaps_off, lookahead=barmerge.lookahead_off)
+
+htf1Text = htf1Bias == 1 ? "Bullish" : htf1Bias == -1 ? "Bearish" : "Neutral"
+htf2Text = htf2Bias == 1 ? "Bullish" : htf2Bias == -1 ? "Bearish" : "Neutral"
+
+//====================================================
+// 8) Score
+//====================================================
+groupScore = "8) Score"
+
+trendBull = close > ema13EG and ema13EG > ema30EG and close > vwapVal
+trendBear = close < ema13EG and ema13EG < ema30EG and close < vwapVal
+
+int bullScore = 0
+int bearScore = 0
+
+// Trend
+bullScore += trendBull ? 15 : 0
+bearScore += trendBear ? 15 : 0
+
+// Momentum
+bullScore += momentumBull ? 15 : 0
+bearScore += momentumBear ? 15 : 0
+
+// Structure
+bullScore += bosUp ? 12 : 0
+bearScore += bosDown ? 12 : 0
+bullScore += chochUp ? 10 : 0
+bearScore += chochDown ? 10 : 0
+
+// Liquidity
+bullScore += sweepLow ? 10 : 0
+bearScore += sweepHigh ? 10 : 0
+bullScore += bearTrap ? 12 : 0
+bearScore += bullTrap ? 12 : 0
+bullScore += equalLow ? 6 : 0
+bearScore += equalHigh ? 6 : 0
+
+// Volume
+bullScore += volumeSpike and close > open ? 8 : 0
+bearScore += volumeSpike and close < open ? 8 : 0
+bullScore += climaxVolume and close > open ? 4 : 0
+bearScore += climaxVolume and close < open ? 4 : 0
+
+// MTF Bias
+bullScore += htf1Bias == 1 ? 8 : 0
+bearScore += htf1Bias == -1 ? 8 : 0
+bullScore += htf2Bias == 1 ? 10 : 0
+bearScore += htf2Bias == -1 ? 10 : 0
+
+// MTF RSI
+bullScore += htf1Rsi > 50 ? 4 : 0
+bearScore += htf1Rsi < 50 ? 4 : 0
+bullScore += htf2Rsi > 50 ? 6 : 0
+bearScore += htf2Rsi < 50 ? 6 : 0
+
+bullScore := math.min(bullScore, 100)
+bearScore := math.min(bearScore, 100)
+
+finalScore = math.max(bullScore, bearScore)
+
+signalText =
+     bullScore >= 70 and bullScore > bearScore ? "Strong Buy Setup"
+   : bearScore >= 70 and bearScore > bullScore ? "Strong Sell Setup"
+   : bullScore >= 50 and bullScore > bearScore ? "Bullish Watchlist"
+   : bearScore >= 50 and bearScore > bullScore ? "Bearish Watchlist"
+   : "Wait"
+
+signalColor =
+     signalText == "Strong Buy Setup" ? color.lime :
+     signalText == "Strong Sell Setup" ? color.red :
+     signalText == "Bullish Watchlist" ? color.aqua :
+     signalText == "Bearish Watchlist" ? color.orange :
+     color.gray
+
+reasonText =
+     signalText == "Strong Buy Setup" ? "Trend + Momentum + Structure + Bull MTF" :
+     signalText == "Strong Sell Setup" ? "Trend + Momentum + Structure + Bear MTF" :
+     signalText == "Bullish Watchlist" ? "Bull Bias but setup not complete" :
+     signalText == "Bearish Watchlist" ? "Bear Bias but setup not complete" :
+     "No alignment"
+
+//====================================================
+// 9) Dashboard
+//====================================================
+var table dash = table.new(dashPos, 2, 19, border_width=1, frame_color=color.gray, border_color=color.gray)
+
+f_scoreColor(_v) =>
+    _v >= 70 ? color.lime :
+     _v >= 50 ? color.orange :
+     color.red
+
+if barstate.islast and showDashboard
+    table.cell(dash, 0, 0, "Smart EGX v11", bgcolor=color.black, text_color=color.white, text_size=txtTitle)
+    table.cell(dash, 1, 0, "MTF Pro", bgcolor=color.black, text_color=color.white, text_size=txtTitle)
+
+    table.cell(dash, 0, 1, "Trend", text_color=color.white, text_size=txtCell)
+    table.cell(dash, 1, 1, trendBull ? "Bullish" : trendBear ? "Bearish" : "Sideways", text_color=trendBull ? color.lime : trendBear ? color.red : color.gray, text_size=txtCell)
+
+    table.cell(dash, 0, 2, "Structure", text_color=color.white, text_size=txtCell)
+    table.cell(dash, 1, 2, structureText, text_color=color.white, text_size=txtCell)
+
+    table.cell(dash, 0, 3, "RSI", text_color=color.white, text_size=txtCell)
+    table.cell(dash, 1, 3, str.tostring(rsiVal, "#.##"), text_color=color.purple, text_size=txtCell)
+
+    table.cell(dash, 0, 4, "ADX", text_color=color.white, text_size=txtCell)
+    table.cell(dash, 1, 4, str.tostring(adxVal, "#.##"), text_color=adxVal > adxStrongLevel ? color.lime : color.yellow, text_size=txtCell)
+
+    table.cell(dash, 0, 5, "Volume", text_color=color.white, text_size=txtCell)
+    table.cell(dash, 1, 5, volumeSpike ? "Spike" : "Normal", text_color=volumeSpike ? color.yellow : color.gray, text_size=txtCell)
+
+    table.cell(dash, 0, 6, "Liquidity", text_color=color.white, text_size=txtCell)
+    table.cell(dash, 1, 6, sweepLow ? "Sweep Low" : sweepHigh ? "Sweep High" : equalLow ? "Equal Lows" : equalHigh ? "Equal Highs" : "Normal", text_color=color.white, text_size=txtCell)
+
+    table.cell(dash, 0, 7, "Trap", text_color=color.white, text_size=txtCell)
+    table.cell(dash, 1, 7, bullTrap ? "Bull Trap" : bearTrap ? "Bear Trap" : "No Trap", text_color=bullTrap ? color.red : bearTrap ? color.lime : color.gray, text_size=txtCell)
+
+    table.cell(dash, 0, 8, "HTF 1", text_color=color.white, text_size=txtCell)
+    table.cell(dash, 1, 8, htf1 + " | " + htf1Text, text_color=htf1Bias == 1 ? color.lime : htf1Bias == -1 ? color.red : color.gray, text_size=txtCell)
+
+    table.cell(dash, 0, 9, "HTF 2", text_color=color.white, text_size=txtCell)
+    table.cell(dash, 1, 9, htf2 + " | " + htf2Text, text_color=htf2Bias == 1 ? color.lime : htf2Bias == -1 ? color.red : color.gray, text_size=txtCell)
+
+    table.cell(dash, 0, 10, "Bull Score", text_color=color.white, text_size=txtCell)
+    table.cell(dash, 1, 10, str.tostring(bullScore) + "/100", bgcolor=f_scoreColor(bullScore), text_color=color.black, text_size=txtCell)
+
+    table.cell(dash, 0, 11, "Bear Score", text_color=color.white, text_size=txtCell)
+    table.cell(dash, 1, 11, str.tostring(bearScore) + "/100", bgcolor=f_scoreColor(bearScore), text_color=color.black, text_size=txtCell)
+
+    table.cell(dash, 0, 12, "Signal", text_color=color.white, text_size=txtCell)
+    table.cell(dash, 1, 12, signalText, text_color=signalColor, text_size=txtCell)
+
+    table.cell(dash, 0, 13, "Reason", text_color=color.white, text_size=txtCell)
+    table.cell(dash, 1, 13, reasonText, text_color=color.white, text_size=txtCell)
+
+    table.cell(dash, 0, 14, "MACD", text_color=color.white, text_size=txtCell)
+    table.cell(dash, 1, 14, showMACDInfo ? (macdLine > macdSignal ? "Bullish" : "Bearish") : "Hidden", text_color=macdLine > macdSignal ? color.lime : color.red, text_size=txtCell)
+
+    if showLegend
+        table.cell(dash, 0, 15, "Legend", bgcolor=color.gray, text_color=color.black, text_size=txtCell)
+        table.cell(dash, 1, 15, "Meaning", bgcolor=color.gray, text_color=color.black, text_size=txtCell)
+
+        table.cell(dash, 0, 16, "Orange / Blue / Yellow", text_color=color.white, text_size=txtCell)
+        table.cell(dash, 1, 16, "EMA13 / EMA30 / VWAP", text_color=color.white, text_size=txtCell)
+
+        table.cell(dash, 0, 17, "Green / Red Shapes", text_color=color.white, text_size=txtCell)
+        table.cell(dash, 1, 17, "Bullish / Bearish Signals", text_color=color.white, text_size=txtCell)
+
+        table.cell(dash, 0, 18, "Gray / Fuchsia / Teal", text_color=color.white, text_size=txtCell)
+        table.cell(dash, 1, 18, "Long Trend / Transition / EGX Pack", text_color=color.white, text_size=txtCell)
+    else
+        table.cell(dash, 0, 15, "", text_color=color.white, text_size=txtCell)
+        table.cell(dash, 1, 15, "", text_color=color.white, text_size=txtCell)
+        table.cell(dash, 0, 16, "", text_color=color.white, text_size=txtCell)
+        table.cell(dash, 1, 16, "", text_color=color.white, text_size=txtCell)
+        table.cell(dash, 0, 17, "", text_color=color.white, text_size=txtCell)
+        table.cell(dash, 1, 17, "", text_color=color.white, text_size=txtCell)
+        table.cell(dash, 0, 18, "", text_color=color.white, text_size=txtCell)
+        table.cell(dash, 1, 18, "", text_color=color.white, text_size=txtCell)
+
+//====================================================
+// 10) Signals
+//====================================================
+buySignal  = showSignals and bullScore >= 70 and bullScore > bearScore and (bosUp or chochUp or sweepLow or bearTrap)
+sellSignal = showSignals and bearScore >= 70 and bearScore > bullScore and (bosDown or chochDown or sweepHigh or bullTrap)
+
+plotshape(showSignals and bosUp,     title="BOS Up",     style=shape.triangleup,   location=location.belowbar, color=color.green, size=size.tiny, text="BOS", textcolor=color.black)
+plotshape(showSignals and bosDown,   title="BOS Down",   style=shape.triangledown, location=location.abovebar, color=color.red,   size=size.tiny, text="BOS", textcolor=color.white)
+
+plotshape(showSignals and chochUp,   title="CHoCH Up",   style=shape.labelup,      location=location.belowbar, color=color.fuchsia, size=size.tiny, text="CH", textcolor=color.white)
+plotshape(showSignals and chochDown, title="CHoCH Down", style=shape.labeldown,    location=location.abovebar, color=color.fuchsia, size=size.tiny, text="CH", textcolor=color.white)
+
+plotshape(showSignals and sweepLow,  title="Sweep Low",  style=shape.circle, location=location.belowbar, color=color.lime, size=size.tiny)
+plotshape(showSignals and sweepHigh, title="Sweep High", style=shape.circle, location=location.abovebar, color=color.red,  size=size.tiny)
+
+plotshape(showSignals and buySignal,  title="Buy Setup",  style=shape.labelup,   location=location.belowbar, color=color.lime, text="BUY",  textcolor=color.black, size=size.small)
+plotshape(showSignals and sellSignal, title="Sell Setup", style=shape.labeldown, location=location.abovebar, color=color.red,  text="SELL", textcolor=color.white, size=size.small)
+
+//====================================================
+// 11) Alerts
+//====================================================
+alertcondition(bosUp,      title="BOS Up",         message="Smart EGX v11: BOS Up on {{ticker}} at {{close}}")
+alertcondition(bosDown,    title="BOS Down",       message="Smart EGX v11: BOS Down on {{ticker}} at {{close}}")
+alertcondition(chochUp,    title="CHoCH Up",       message="Smart EGX v11: CHoCH Up on {{ticker}} at {{close}}")
+alertcondition(chochDown,  title="CHoCH Down",     message="Smart EGX v11: CHoCH Down on {{ticker}} at {{close}}")
+alertcondition(sweepLow,   title="Sweep Low",      message="Smart EGX v11: Sweep Low on {{ticker}} at {{close}}")
+alertcondition(sweepHigh,  title="Sweep High",     message="Smart EGX v11: Sweep High on {{ticker}} at {{close}}")
+alertcondition(bullTrap,   title="Bull Trap",      message="Smart EGX v11: Bull Trap on {{ticker}} at {{close}}")
+alertcondition(bearTrap,   title="Bear Trap",      message="Smart EGX v11: Bear Trap on {{ticker}} at {{close}}")
+alertcondition(buySignal,  title="Strong Buy",     message="Smart EGX v11: Strong Buy Setup on {{ticker}} at {{close}}")
+alertcondition(sellSignal, title="Strong Sell",    message="Smart EGX v11: Strong Sell Setup on {{ticker}} at {{close}}")

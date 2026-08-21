@@ -1,0 +1,24 @@
+//@version=5
+indicator("Scalper Pro - Mobile + دليل مفتاحي", overlay=true, max_labels_count=500)
+
+//===== المؤشرات =====
+ema9  = ta.ema(close, 9)
+ema21 = ta.ema(close, 21)
+vwap  = ta.vwap(hlc3)
+rsi7  = ta.rsi(close, 7)
+
+//===== رسم المؤشرات =====
+plot(ema9,  color=color.aqua,   linewidth=2, title="EMA 9")
+plot(ema21, color=color.blue,   linewidth=2, title="EMA 21")
+plot(vwap,  color=color.yellow, linewidth=2, title="VWAP")
+
+//===== RSI على نافذة منفصلة (اختياري) =====
+plot(rsi7, color=color.fuchsia, title="RSI 7", linewidth=1, display=display.none) // خفي للموبايل
+
+//===== جدول المفتاحي (Legend) =====
+var table legend = table.new(position.top_right, 1, 4, border_width=1)
+if bar_index == ta.highest(bar_index, 5)
+    table.cell(legend, 0, 0, "دليل الألوان والمؤشرات", text_color=color.white, bgcolor=color.gray)
+    table.cell(legend, 0, 1, "EMA 9 : سماوي", text_color=color.aqua)
+    table.cell(legend, 0, 2, "EMA 21 : أزرق", text_color=color.blue)
+    table.cell(legend, 0, 3, "VWAP : أصفر", text_color=color.yellow)

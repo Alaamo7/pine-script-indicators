@@ -1,0 +1,43 @@
+//@version=5
+indicator("VWAP + ADX Trend Filter with Compact Legend", overlay=true, max_lines_count=500, max_labels_count=500)
+
+// === الإعدادات ===
+adxLength     = input.int(14, "ADX Length")
+adxSmoothing  = input.int(14, "ADX Smoothing")
+adxThreshold  = input.float(25.0, "ADX Threshold")
+showLegend    = input.bool(true, "📌 Show Legend?")
+
+// === VWAP ===
+vwapValue = ta.vwap(close)
+plot(vwapValue, title="VWAP", color=color.orange, linewidth=2)
+
+// === DMI / ADX ===
+[plusDI, minusDI, adx] = ta.dmi(adxLength, adxSmoothing)
+plot(adx, title="ADX", color=color.blue)
+hline(adxThreshold, "ADX Threshold", color=color.gray, linestyle=hline.style_dashed)
+
+// === إشارات التداول ===
+longSignal  = close > vwapValue and adx > adxThreshold and ta.crossover(close, vwapValue)
+shortSignal = close < vwapValue and adx > adxThreshold and ta.crossunder(close, vwapValue)
+
+plotshape(longSignal, title="Long Signal", location=location.belowbar, color=color.green, style=shape.arrowup, size=size.small)
+plotshape(shortSignal, title="Short Signal", location=location.abovebar, color=color.red, style=shape.arrowdown, size=size.small)
+
+// === الدليل المفتاحي المحسن ===
+var table legend = table.new(position.bottom_right, 2, 5, border_width=1, bgcolor=color.new(color.black, 60))
+
+if showLegend and (bar_index % 50 == 0)
+    table.cell(legend, 0, 0, "🔶", text_color=color.orange, text_size=size.small)
+    table.cell(legend, 1, 0, "VWAP", text_color=color.white, text_size=size.small)
+
+    table.cell(legend, 0, 1, "🔵", text_color=color.blue, text_size=size.small)
+    table.cell(legend, 1, 1, "ADX", text_color=color.white, text_size=size.small)
+
+    table.cell(legend, 0, 2, "⚪", text_color=color.gray, text_size=size.small)
+    table.cell(legend, 1, 2, "ADX Threshold", text_color=color.white, text_size=size.small)
+
+    table.cell(legend, 0, 3, "🟢", text_color=color.green, text_size=size.small)
+    table.cell(legend, 1, 3, "Long Signal", text_color=color.white, text_size=size.small)
+
+    table.cell(legend, 0, 4, "🔴", text_color=color.red, text_size=size.small)
+    table.cell(legend, 1, 4, "Short Signal", text_color=color.white, text_size=size.small)

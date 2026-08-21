@@ -1,0 +1,86 @@
+//@version=5
+indicator("📊 Smart Trend Dashboard – EGX Pro (Final Version)", overlay=true, max_lines_count=100, max_labels_count=100)
+
+// === المدخلات
+lengthDI       = input.int(14, title="DI/ADX الفترة")
+adxSmoothing   = input.int(14, title="تنعيم ADX")
+rocLen         = input.int(10, title="طول الزخم ROC")
+obvEmaLen      = input.int(5, title="تنعيم EMA لـ OBV")
+rsiLen         = input.int(14, title="طول RSI")
+macdFast       = input.int(12, title="MACD سريع")
+macdSlow       = input.int(26, title="MACD بطيء")
+macdSignal     = input.int(9, title="MACD إشارة")
+
+// إعداد إضافي للتحكم في الدليل المفتاحي
+showLegend = input.bool(true, "إظهار دليل الألوان؟")
+
+// === حركة السعر
+isBullish = close > open
+isBearish = close < open
+
+// === OBV
+obvVal    = ta.obv
+obvEma    = ta.ema(obvVal, obvEmaLen)
+obvTrend  = obvVal > obvEma ? "صاعد" : obvVal < obvEma ? "هابط" : "ثابت"
+obvColor  = obvTrend == "صاعد" ? color.green : obvTrend == "هابط" ? color.red : color.white
+
+// === الزخم (ROC)
+momentum      = ta.roc(close, rocLen)
+momentumTrend = momentum > 0 ? "صاعد" : momentum < 0 ? "هابط" : "ثابت"
+momentumColor = momentumTrend == "صاعد" ? color.green : momentumTrend == "هابط" ? color.red : color.white
+
+// === DMI
+[adx, dip, dim] = ta.dmi(lengthDI, adxSmoothing)
+diStrength      = dip > 25 ? "قوي" : dip < 20 ? "ضعيف" : "متوسط"
+diColor         = dip > 25 ? color.green : dip < 20 ? color.red : color.white
+
+// === RSI
+rsi        = ta.rsi(close, rsiLen)
+rsiTrend   = rsi > 70 ? "تشبع شرائي" : rsi < 30 ? "تشبع بيعي" : rsi > 50 ? "صاعد" : "هابط"
+rsiColor   = rsiTrend == "صاعد" ? color.green : rsiTrend == "هابط" ? color.red : color.orange
+
+// === MACD
+[macdLine, signalLine, _] = ta.macd(close, macdFast, macdSlow, macdSignal)
+macdTrend  = macdLine > signalLine ? "صاعد" : macdLine < signalLine ? "هابط" : "ثابت"
+macdColor  = macdTrend == "صاعد" ? color.green : macdTrend == "هابط" ? color.red : color.white
+
+// === إشارات تداول
+buySignal  = isBullish and obvTrend == "صاعد" and momentumTrend == "صاعد" and dip > 25 and macdTrend == "صاعد" and rsi > 50
+sellSignal = isBearish and obvTrend == "هابط" and momentumTrend == "هابط" and dip < 20 and macdTrend == "هابط" and rsi < 50
+
+plotshape(buySignal, title="إشارة شراء", location=location.belowbar, color=color.lime, style=shape.labelup, size=size.tiny, text="شراء")
+plotshape(sellSignal, title="إشارة بيع", location=location.abovebar, color=color.red, style=shape.labeldown, size=size.tiny, text="بيع")
+
+// === لوحة معلومات متكاملة
+var table dashboard = table.new(position.top_right, 2, 7, border_width=1, frame_color=color.gray, bgcolor=color.black)
+
+if barstate.islast
+    table.cell(dashboard, 0, 0, "المؤشر", text_color=color.white, bgcolor=color.gray, text_size=size.tiny)
+    table.cell(dashboard, 1, 0, "الوضع الحالي", text_color=color.white, bgcolor=color.gray, text_size=size.tiny)
+
+    table.cell(dashboard, 0, 1, "السعر", text_color=color.white)
+    table.cell(dashboard, 1, 1, isBullish ? "صاعد" : isBearish ? "هابط" : "محايد", text_color=isBullish ? color.green : isBearish ? color.red : color.white)
+
+    table.cell(dashboard, 0, 2, "OBV", text_color=color.white)
+    table.cell(dashboard, 1, 2, obvTrend + " (" + str.tostring(obvVal, "#.##") + ")", text_color=obvColor)
+
+    table.cell(dashboard, 0, 3, "الزخم", text_color=color.white)
+    table.cell(dashboard, 1, 3, momentumTrend + " (" + str.tostring(momentum, "#.##") + ")", text_color=momentumColor)
+
+    table.cell(dashboard, 0, 4, "DI+", text_color=color.white)
+    table.cell(dashboard, 1, 4, diStrength + " (" + str.tostring(dip, "#.##") + ")", text_color=diColor)
+
+    table.cell(dashboard, 0, 5, "RSI", text_color=color.white)
+    table.cell(dashboard, 1, 5, rsiTrend + " (" + str.tostring(rsi, "#.##") + ")", text_color=rsiColor)
+
+    table.cell(dashboard, 0, 6, "MACD", text_color=color.white)
+    table.cell(dashboard, 1, 6, macdTrend, text_color=macdColor)
+
+// === دليل مرئي للمفاتيح — يظهر مرة واحدة فقط في أقصى يسار الشاشة
+var label legend = na
+
+if (barstate.islast and showLegend)
+    if (na(legend))
+        legend := label.new(x=bar_index - 20, y=high, text="🟢 صاعد\n🔴 هابط\n🟠 تشبع", style=label.style_label_left, textcolor=color.white, size=size.tiny, color=color.black, textalign=text.align_left)
+    else
+        label.set_xy(legend, bar_index - 20, high)

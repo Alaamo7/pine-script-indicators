@@ -1,0 +1,45 @@
+//@version=6
+indicator("Mobile Correction Lite + Legend", overlay=true, max_labels_count=20)
+
+// === المدخلات ===
+emaLen      = input.int(13, "طول EMA التصحيح", minval=3)
+rsiLen      = input.int(7, "طول RSI")
+rsiCorr     = input.int(35, "مستوى RSI منطقة التصحيح")
+rsiBounce   = input.int(65, "مستوى RSI ارتداد")
+
+// === الحسابات ===
+ema  = ta.ema(close, emaLen)
+rsi  = ta.rsi(close, rsiLen)
+
+correction = (close < ema) and (rsi < rsiCorr)
+bounce     = (close > ema) and (rsi > rsiBounce)
+
+// === تلوين الخلفية ===
+bgcolor(correction ? color.new(color.green, 85) : na, title="منطقة تصحيح شراء")
+bgcolor(bounce ? color.new(color.red, 85) : na, title="منطقة ارتداد بيع")
+
+// === رسم المتوسط ===
+plot(ema, color=color.new(color.blue, 0), linewidth=2, title="EMA التصحيح")
+
+// === إشارات التصحيح والارتداد ===
+plotshape(correction, style=shape.triangleup, location=location.belowbar, color=color.green, size=size.small, title="إشارة تصحيح شراء")
+plotshape(bounce, style=shape.triangledown, location=location.abovebar, color=color.red, size=size.small, title="إشارة ارتداد بيع")
+
+// === الدليل المفتاحي ===
+var table legend = table.new(position.top_right, 2, 5, bgcolor=color.new(color.white, 85))
+
+if barstate.islast
+    table.cell(legend, 0, 0, "الدليل المفتاحي", text_color=color.black, bgcolor=color.yellow, text_size=size.large)
+    table.cell(legend, 0, 1, "الرمز", text_color=color.black, bgcolor=color.gray)
+    table.cell(legend, 1, 1, "المعنى", text_color=color.black, bgcolor=color.gray)
+    table.cell(legend, 0, 2, "أرضية خضراء", bgcolor=color.new(color.green, 85), text_color=color.black)
+    table.cell(legend, 1, 2, "منطقة تصحيح (فرصة شراء)")
+    table.cell(legend, 0, 3, "أرضية حمراء", bgcolor=color.new(color.red, 85), text_color=color.black)
+    table.cell(legend, 1, 3, "منطقة ارتداد (فرصة بيع)")
+    table.cell(legend, 0, 4, "خط أزرق", text_color=color.blue)
+    table.cell(legend, 1, 4, "EMA التصحيح")
+
+// الدليل المفتاحي:
+// - أرضية خضراء = منطقة تصحيح وفرصة شراء
+// - أرضية حمراء = منطقة ارتداد وفرصة بيع
+// - خط أزرق = المتوسط التصحيحي (EMA)

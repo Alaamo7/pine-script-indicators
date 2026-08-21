@@ -1,0 +1,22 @@
+//@version=6
+indicator("Volume Analyst Pro", overlay=false)
+
+// إعدادات المتوسط المتحرك للحجم
+vol_length = input.int(20, title="عدد الفترات للمتوسط المتحرك (MA)")
+
+// حساب المتوسط المتحرك للحجم
+vol_ma = ta.sma(volume, vol_length)
+
+// تلوين الأعمدة حسب حجم التداول
+vol_color = volume > vol_ma ? color.new(color.green, 0) : color.new(color.gray, 0)
+plot(volume, style=plot.style_columns, color=vol_color, title="أحجام التداول")
+
+// رسم المتوسط المتحرك للحجم
+plot(vol_ma, color=color.blue, linewidth=2, title="المتوسط المتحرك للحجم")
+
+// إشارات ذكية: حجم أعلى من المتوسط + شمعة خضراء = شراء، والعكس للبيع
+buy_signal = close > open and volume > vol_ma
+sell_signal = close < open and volume > vol_ma
+
+plotshape(buy_signal, style=shape.triangleup, location=location.belowbar, color=color.green, size=size.tiny, title="إشارة شراء (حجم عالي + صعود)")
+plotshape(sell_signal, style=shape.triangledown, location=location.abovebar, color=color.red, size=size.tiny, title="إشارة بيع (حجم عالي + هبوط)")

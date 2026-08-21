@@ -1,0 +1,12 @@
+//@version=6
+indicator("Smart EgyX Trend Analyzer (Main Chart)", overlay=true)
+
+plot(ta.ema(close, 9), title="EMA 9", color=color.orange)
+plot(ta.ema(close, 21), title="EMA 21", color=color.blue)
+plot(ta.ema(close, 50), title="EMA 50", color=color.green)
+plot(ta.ema(close, 200), title="EMA 200", color=color.red)
+
+show_VolMA = input.bool(true, "إظهار حجم التداول والمتوسط")
+vol_ma = ta.sma(volume, 20)
+plot(show_VolMA ? volume : na, title="Volume", color=color.gray, style=plot.style_columns)
+plot(show_VolMA ? vol_ma : na, title="Volume MA", color=color.yellow)

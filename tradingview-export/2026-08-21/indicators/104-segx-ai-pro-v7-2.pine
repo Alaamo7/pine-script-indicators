@@ -1,0 +1,100 @@
+//@version=6
+// الاسم المختصر: SEGX AI Pro v7.2
+// المبرمج: خبير Pine Script Senior | موجه إلى: علاء
+// التوثيق: نظام هجين (سكالبينج + سوينج) مخصص للبورصة المصرية مع فلتر زمني ودليل ألوان كامل بالداشبورد
+indicator("SEGX AI Pro v7.2", overlay=true, max_lines_count=500, max_labels_count=500, max_boxes_count=200)
+
+//====================================================
+// 1) المدخلات (Inputs)
+//====================================================
+groupTime     = "إعدادات الوقت (EGX)"
+useTimeFilter = input.bool(true, "تفعيل فلتر الجلسة المصرية", group=groupTime)
+sessionTime   = input.session("1000-1430:1234567", "توقيت الجلسة (10:00 - 14:30)", group=groupTime)
+timezone      = input.string("UTC+3", "التوقيت (مصر UTC+3)", group=groupTime)
+
+groupCore     = "إعدادات الاستراتيجية"
+enableScalp   = input.bool(true, "تفعيل إشارات السكالبينج", group=groupCore)
+enableSwing   = input.bool(true, "تفعيل إشارات السوينج", group=groupCore)
+barsSession   = input.int(24, "إعدادات الجلسة الفنية", group=groupCore)
+
+groupVisual   = "تخصيص الواجهة"
+mobileMode    = input.bool(false, "وضع الموبايل", group=groupVisual)
+
+//====================================================
+// 2) محركات الاتجاه والوقت (Engines)
+//====================================================
+// التحقق من وقت الجلسة
+isInSession = not useTimeFilter or not na(time(timeframe.period, sessionTime, timezone))
+
+f_len(x) => math.min(math.max(x, 1), 4999)
+
+ema9   = ta.ema(close, 9)   // سماوي
+ema21  = ta.ema(close, 21)  // أزرق
+ema288 = ta.ema(close, f_len(math.round(288 * barsSession))) // رمادي
+vwap   = ta.vwap(hlc3)      // أصفر
+
+// --- الحل النهائي لمشكلة السطر 36 ---
+// تم وضع منطق العرض مباشرة داخل الـ plot لتجنب أي تعارض في الأسماء
+// display.all - display.status_line يضمن إخفاء الأرقام من الأعلى تماماً
+plot(ema9,   "EMA 9",   color=color.aqua,   display=display.all - display.status_line)
+plot(ema21,  "EMA 21",  color=color.blue,   display=display.all - display.status_line)
+plot(ema288, "EMA 288", color=color.gray,   display=display.all - display.status_line, linewidth=2)
+plot(vwap,   "VWAP",    color=color.yellow, display=display.all - display.status_line, linewidth=2)
+
+//====================================================
+// 3) منطق السيولة وهيكل السوق (SMC & Signals)
+//====================================================
+volMA = ta.sma(volume, 20)
+isVolSpike = volume > volMA * 1.8 
+bullOB = close > open and close[1] < open[1] and close > high[1] and isVolSpike and isInSession
+bearOB = close < open and close[1] > open[1] and close < low[1] and isVolSpike and isInSession
+
+if bullOB
+    box.new(bar_index-1, high[1], bar_index + 15, low[1], bgcolor=color.new(color.lime, 90), border_color=color.lime)
+if bearOB
+    box.new(bar_index-1, high[1], bar_index + 15, low[1], bgcolor=color.new(color.red, 90), border_color=color.red)
+
+scalpBuy = enableScalp and isInSession and ta.crossover(ema9, ema21) and close > vwap
+swingBuy = enableSwing and isInSession and ta.crossover(close, ta.highest(high, 10)) and close > ema288
+
+plotshape(scalpBuy, "Scalp Signal", style=shape.triangleup, location=location.belowbar, color=color.new(color.lime, 30), size=size.tiny, display=display.all - display.status_line)
+plotshape(swingBuy, "Swing Signal", style=shape.labelup, location=location.belowbar, color=color.lime, text="SWING", textcolor=color.black, size=size.small, display=display.all - display.status_line)
+
+//====================================================
+// 4) الداشبورد التفسيري (The Ultimate Legend)
+//====================================================
+var table dash = table.new(position.middle_right, 3, 11, border_width=1, frame_color=color.gray, bgcolor=color.new(color.black, 15))
+t_size = mobileMode ? size.tiny : size.small
+
+if barstate.islast
+    table.cell(dash, 0, 0, "البند / المؤشر", bgcolor=color.blue, text_color=color.white, text_size=t_size)
+    table.cell(dash, 1, 0, "القيمة اللحظية", bgcolor=color.blue, text_color=color.white, text_size=t_size)
+    table.cell(dash, 2, 0, "دليل الألوان والرموز", bgcolor=color.blue, text_color=color.white, text_size=t_size)
+    
+    table.cell(dash, 0, 1, "جلسة مصر (EGX)", text_color=color.white, text_size=t_size)
+    table.cell(dash, 1, 1, isInSession ? "مفتوحة ●" : "مغلقة ○", text_color=isInSession ? color.lime : color.red, text_size=t_size)
+    table.cell(dash, 2, 1, "10:00 ص - 2:30 م", text_color=color.silver, text_size=t_size)
+
+    table.cell(dash, 0, 2, "EMA 9 (Fast)", text_color=color.white, text_size=t_size)
+    table.cell(dash, 1, 2, str.tostring(ema9, "#.##"), text_color=color.aqua, text_size=t_size)
+    table.cell(dash, 2, 2, "سماوي: اتجاه لحظي", text_color=color.aqua, text_size=t_size)
+
+    table.cell(dash, 0, 3, "EMA 21 (Mid)", text_color=color.white, text_size=t_size)
+    table.cell(dash, 1, 3, str.tostring(ema21, "#.##"), text_color=color.blue, text_size=t_size)
+    table.cell(dash, 2, 3, "أزرق: فلتر زخم", text_color=color.blue, text_size=t_size)
+
+    table.cell(dash, 0, 4, "EMA 288 (Long)", text_color=color.white, text_size=t_size)
+    table.cell(dash, 1, 4, str.tostring(ema288, "#.##"), text_color=color.gray, text_size=t_size)
+    table.cell(dash, 2, 4, "رمادي: مرساة استثمار", text_color=color.gray, text_size=t_size)
+
+    table.cell(dash, 0, 5, "VWAP", text_color=color.white, text_size=t_size)
+    table.cell(dash, 1, 5, str.tostring(vwap, "#.##"), text_color=color.yellow, text_size=t_size)
+    table.cell(dash, 2, 5, "أصفر: سيولة مؤسسات", text_color=color.yellow, text_size=t_size)
+
+    table.cell(dash, 0, 6, "حالة السكالبينج", text_color=color.white, text_size=t_size)
+    table.cell(dash, 1, 6, scalpBuy ? "دخول سريع" : "انتظار", text_color=scalpBuy ? color.lime : color.silver, text_size=t_size)
+    table.cell(dash, 2, 6, "▲: مثلث صغير", text_color=color.lime, text_size=t_size)
+
+    table.cell(dash, 0, 7, "حالة السوينج", text_color=color.white, text_size=t_size)
+    table.cell(dash, 1, 7, close > ema288 ? "إيجابي" : "سلبي", text_color=close > ema288 ? color.lime : color.red, text_size=t_size)
+    table.cell(dash, 2, 7, "SWING: ليبل كبير", text_color=color.fuchsia, text_size=t_size)

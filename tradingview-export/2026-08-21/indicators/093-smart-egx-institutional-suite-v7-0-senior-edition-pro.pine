@@ -1,0 +1,160 @@
+//@version=6
+indicator("Smart EGX Institutional Suite v7.0 (Senior Edition PRO)", overlay=true, max_boxes_count=500, max_lines_count=500)
+
+//====================================================
+// 1) INPUTS
+//====================================================
+
+groupTrend      = "Trend Analysis"
+groupMomentum   = "Momentum"
+groupStructure  = "Market Structure"
+groupInstitutional = "Institutional Logic"
+groupVisuals    = "Dashboard"
+
+ema21Len  = input.int(21, "EMA 21", group=groupTrend)
+ema50Len  = input.int(50, "EMA 50", group=groupTrend)
+ema200Len = input.int(200,"EMA 200", group=groupTrend)
+
+rsiLen = input.int(14,"RSI Length", group=groupMomentum)
+adxLen = input.int(14,"ADX Length", group=groupMomentum)
+
+pivotLen = input.int(5,"Pivot Length", group=groupStructure)
+
+volLen = input.int(20,"Volume Average", group=groupInstitutional)
+volMult = input.float(1.8,"Volume Spike Multiplier", group=groupInstitutional)
+
+showDash = input.bool(true,"Show Dashboard", group=groupVisuals)
+
+//====================================================
+// 2) CALCULATIONS
+//====================================================
+
+ema21 = ta.ema(close, ema21Len)
+ema50 = ta.ema(close, ema50Len)
+ema200 = ta.ema(close, ema200Len)
+
+rsiVal = ta.rsi(close,rsiLen)
+
+[diPlus,diMinus,adxVal] = ta.dmi(adxLen,adxLen)
+
+volAvg = ta.sma(volume,volLen)
+volumeSpike = volume > volAvg * volMult
+
+//====================================================
+// 3) MARKET STRUCTURE
+//====================================================
+
+ph = ta.pivothigh(high,pivotLen,pivotLen)
+pl = ta.pivotlow(low,pivotLen,pivotLen)
+
+var float lastPH = na
+var float lastPL = na
+
+if not na(ph)
+    lastPH := ph
+
+if not na(pl)
+    lastPL := pl
+
+bosUp = close > lastPH[1] and not na(lastPH)
+bosDown = close < lastPL[1] and not na(lastPL)
+
+var bool bullishStructure = false
+
+if bosUp
+    bullishStructure := true
+else if bosDown
+    bullishStructure := false
+
+//====================================================
+// 4) STOP HUNT (LIQUIDITY GRAB)
+//====================================================
+
+stopHuntBear =
+ volumeSpike and
+ high > lastPH and
+ close < lastPH
+
+stopHuntBull =
+ volumeSpike and
+ low < lastPL and
+ close > lastPL
+
+//====================================================
+// 5) SCORE SYSTEM
+//====================================================
+
+score = 0
+
+// TREND (25)
+
+if close > ema21 and ema21 > ema50
+    score += 25
+else if close < ema21 and ema21 < ema50
+    score += 15
+
+// MOMENTUM (20)
+
+if rsiVal > 55 and adxVal > 20
+    score += 20
+
+// STRUCTURE (30)
+
+if bullishStructure
+    score += 30
+
+// LIQUIDITY (25)
+
+if stopHuntBull or stopHuntBear
+    score += 25
+
+//====================================================
+// 6) VISUALS
+//====================================================
+
+plot(ema21,"EMA21",color=color.orange)
+plot(ema50,"EMA50",color=color.blue)
+plot(ema200,"EMA200",color=color.white,linewidth=2)
+
+plotshape(stopHuntBear,"Bear Stop Hunt",shape.labeldown,location.abovebar,color=color.red,text="SH")
+
+plotshape(stopHuntBull,"Bull Stop Hunt",shape.labelup,location.belowbar,color=color.lime,text="SH")
+
+//====================================================
+// 7) DASHBOARD
+//====================================================
+
+var table board = table.new(position.middle_right,2,6)
+
+if barstate.islast and showDash
+
+    scoreColor =
+     score >= 80 ? color.lime :
+     score >= 50 ? color.yellow :
+     color.red
+
+    table.cell(board,0,0,"Smart EGX")
+    table.cell(board,1,0,"Institutional")
+
+    table.cell(board,0,1,"Structure")
+    table.cell(board,1,1,bullishStructure?"Bullish":"Bearish")
+
+    table.cell(board,0,2,"RSI")
+    table.cell(board,1,2,str.tostring(rsiVal,"#.##"))
+
+    table.cell(board,0,3,"ADX")
+    table.cell(board,1,3,str.tostring(adxVal,"#.##"))
+
+    table.cell(board,0,4,"Score")
+    table.cell(board,1,4,str.tostring(score),bgcolor=scoreColor)
+
+    table.cell(board,0,5,"Volume Spike")
+    table.cell(board,1,5,volumeSpike?"Yes":"No")
+
+//====================================================
+// 8) ALERTS
+//====================================================
+
+alertcondition(score>=80,"Strong Setup","Institutional Setup Detected")
+
+alertcondition(stopHuntBull or stopHuntBear,"Liquidity Grab","Stop Hunt Detected")

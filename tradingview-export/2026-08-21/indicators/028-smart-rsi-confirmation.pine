@@ -1,0 +1,18 @@
+//@version=6  
+indicator("Smart RSI Confirmation", overlay=false)  
+
+// إعدادات RSI  
+rsi_length = input.int(14, title="فترة RSI")  
+rsi_overbought = input.int(70, title="منطقة التشبع الشرائي")  
+rsi_oversold = input.int(30, title="منطقة التشبع البيعي")  
+src = close  
+
+// حساب RSI  
+rsi = ta.rsi(src, rsi_length)  
+rsi_color = rsi > rsi_overbought ? color.red : rsi < rsi_oversold ? color.green : color.gray  
+
+// رسم  
+hline(rsi_overbought, "تشبع شرائي", color=color.red)  
+hline(rsi_oversold, "تشبع بيعي", color=color.green)  
+hline(50, "المستوى المحايد", color=color.gray, linestyle=hline.style_dotted)  
+plot(rsi, title="RSI", color=rsi_color, linewidth=2)

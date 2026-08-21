@@ -1,0 +1,66 @@
+//@version=6
+indicator("Mid-Term Investor - Smart Pack + Volume Confirmation", overlay=true)
+
+// المتوسطات المتحركة
+ema50_len = input.int(50, title="EMA 50 Length")
+ema200_len = input.int(200, title="EMA 200 Length")
+
+ema50 = ta.ema(close, ema50_len)
+ema200 = ta.ema(close, ema200_len)
+
+plot(ema50, color=color.blue, title="EMA 50")
+plot(ema200, color=color.red, title="EMA 200")
+
+// مؤشر الزخم RSI
+rsi_len = input.int(14, title="RSI Length")
+rsi_src = input.source(close, title="RSI Source")
+rsi = ta.rsi(rsi_src, rsi_len)
+
+rsi_ob = input.int(70, title="Overbought Level")
+rsi_os = input.int(30, title="Oversold Level")
+
+hline(rsi_ob, "Overbought", color=color.red)
+hline(rsi_os, "Oversold", color=color.green)
+
+// --- تأكيد الفوليوم ---
+vol_len = input.int(20, title="Volume Moving Average Length")
+vol_multiplier = input.float(1.2, title="Volume Multiplier for Confirmation")
+
+vol_ma = ta.sma(volume, vol_len)
+vol_confirm = volume > (vol_ma * vol_multiplier)
+
+plot(vol_ma, title="Volume MA", color=color.purple)
+
+// شروط الدخول والخروج مع تأكيد الفوليوم
+longCondition = ta.crossover(ema50, ema200) and rsi < rsi_ob and vol_confirm
+shortCondition = ta.crossunder(ema50, ema200) and rsi > rsi_os and vol_confirm
+
+// رسم إشارات الدخول
+plotshape(longCondition, title="Buy Signal", location=location.belowbar, color=color.green, style=shape.labelup, text="BUY")
+plotshape(shortCondition, title="Sell Signal", location=location.abovebar, color=color.red, style=shape.labeldown, text="SELL")
+
+// تحديد مستويات وقف الخسارة وجني الأرباح
+risk_percent = input.float(1.5, title="Risk % per Trade", minval=0.1, step=0.1) / 100
+reward_ratio = input.float(3.0, title="Reward Ratio", minval=1.0, step=0.1)
+
+var float stopLossPrice = na
+var float takeProfitPrice = na
+
+if (longCondition)
+    stopLossPrice := close * (1 - risk_percent)
+    takeProfitPrice := close * (1 + risk_percent * reward_ratio)
+
+if (shortCondition)
+    stopLossPrice := close * (1 + risk_percent)
+    takeProfitPrice := close * (1 - risk_percent * reward_ratio)
+
+// رسم مستويات وقف الخسارة وجني الأرباح
+plot(stopLossPrice, title="Stop Loss", color=color.red, style=plot.style_circles)
+plot(takeProfitPrice, title="Take Profit", color=color.green, style=plot.style_circles)
+
+// إشعارات
+if (longCondition)
+    alert("فرصة شراء قوية مع تأكيد فوليوم 📈", alert.freq_once_per_bar)
+
+if (shortCondition)
+    alert("فرصة بيع قوية مع تأكيد فوليوم 📉", alert.freq_once_per_bar)

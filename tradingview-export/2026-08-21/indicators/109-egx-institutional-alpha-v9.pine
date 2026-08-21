@@ -1,0 +1,111 @@
+//@version=6
+// @description نسخة علاء التاسعة - إصلاح أخطاء السينتكس وتوضيح نصوص الداشبورد بالكامل
+// @author Senior Pine Programmer for Alaa
+indicator("EGX Institutional Alpha v9", overlay=true, max_lines_count=500, max_labels_count=500)
+
+//====================================================
+// 1. Inputs - إعدادات علاء
+//====================================================
+groupTrend = "إعدادات الاتجاه"
+ema50Len   = input.int(50, "EMA 50", minval=1, group=groupTrend)
+ema200Len  = input.int(200, "EMA 200", minval=1, group=groupTrend)
+
+groupSMC   = "هيكل السوق المؤسسي"
+pivLen     = input.int(3, "قوة الـ Pivot", group=groupSMC)
+
+groupUI    = "إعدادات الواجهة"
+dashPos    = input.string("Middle Right", "موقع اللوحة", options=["Top Right", "Middle Right", "Bottom Right"], group=groupUI)
+
+//====================================================
+// 2. Trend Engine - محرك الاتجاه
+//====================================================
+ema50  = ta.ema(close, ema50Len)
+ema200 = ta.ema(close, ema200Len)
+isBullTrend = close > ema50 and ema50 > ema200
+isBearTrend = close < ema50 and ema50 < ema200
+
+plot(ema50,  "EMA 50",  color=color.new(color.blue, 40), linewidth=2)
+plot(ema200, "EMA 200", color=color.new(color.red, 20),  linewidth=3)
+
+//====================================================
+// 3. SMC Logic - (إصلاح الخطأ البرمجي هنا)
+//====================================================
+ph = ta.pivothigh(high, pivLen, pivLen)
+pl = ta.pivotlow(low, pivLen, pivLen)
+
+var float lastHigh = na
+var float lastLow  = na
+
+// التصحيح: استخدام البلوك الشرطي الصحيح بدلاً من =>
+if not na(ph)
+    lastHigh := ph
+
+if not na(pl)
+    lastLow := pl
+
+// كسر الهيكل (Non-Repainting BOS)
+bool bosUp   = close > lastHigh and close[1] <= lastHigh
+bool bosDown = close < lastLow and close[1] >= lastLow
+
+//====================================================
+// 4. Score System - نظام التقييم الرقمي
+//====================================================
+rsiVal = ta.rsi(close, 14)
+volMA  = ta.sma(volume, 20)
+liqIn  = volume > volMA
+
+int score = 0
+score += (isBullTrend ? 1 : isBearTrend ? -1 : 0)
+score += (rsiVal > 50 ? 1 : -1)
+score += (bosUp ? 2 : bosDown ? -2 : 0)
+score += (liqIn ? 1 : -1)
+
+//====================================================
+// 5. Signal Engine - الإشارات (رموز فقط بدون نصوص)
+//====================================================
+buySig  = score >= 4  and close > open
+sellSig = score <= -4 and close < open
+
+// رسم المثلثات كعلامات مرجعية
+plotshape(buySig,  "Buy Symbol",  shape.triangleup,   location.belowbar, color.green, size=size.small)
+plotshape(sellSig, "Sell Symbol", shape.triangledown, location.abovebar, color.red,   size=size.small)
+
+//====================================================
+// 6. Dashboard - إصلاح ظهور نصوص العمود الأيمن
+//====================================================
+var table dash = table.new(dashPos == "Top Right" ? position.top_right : dashPos == "Middle Right" ? position.middle_right : position.bottom_right, 2, 10, border_width=1, border_color=color.gray)
+
+if barstate.islast
+    // تحديد ألوان الخلايا
+    color colHead = color.rgb(41, 98, 255) // أزرق داكن للترويسة
+    color colRow  = color.rgb(20, 25, 35)  // خلفية داكنة جداً للخلايا
+
+    // --- العناوين ---
+    table.cell(dash, 0, 0, "البند الفني",  text_color=color.white, bgcolor=colHead)
+    table.cell(dash, 1, 0, "الحالة / المرجع", text_color=color.white, bgcolor=colHead)
+
+    // --- الاتجاه ---
+    table.cell(dash, 0, 1, "الاتجاه العام", text_color=color.white, bgcolor=colRow)
+    table.cell(dash, 1, 1, isBullTrend ? "صعود مؤسسي" : isBearTrend ? "هبوط مؤسسي" : "عرضي", text_color=color.white, bgcolor=isBullTrend ? color.new(color.green, 40) : isBearTrend ? color.new(color.red, 40) : colRow)
+
+    // --- السكور ---
+    table.cell(dash, 0, 2, "قوة الإشارة (Score)", text_color=color.white, bgcolor=colRow)
+    table.cell(dash, 1, 2, str.tostring(score), text_color=color.white, bgcolor=score >= 3 ? color.green : score <= -3 ? color.red : color.orange)
+
+    // --- شرح الرموز (المرجعية) ---
+    table.cell(dash, 0, 3, "الرمز ▲ (أخضر)", text_color=color.green, bgcolor=colRow)
+    table.cell(dash, 1, 3, "تجميع / شراء مؤكد", text_color=color.white, bgcolor=colRow)
+
+    table.cell(dash, 0, 4, "الرمز ▼ (أحمر)", text_color=color.red, bgcolor=colRow)
+    table.cell(dash, 1, 4, "تصريف / خروج مؤكد", text_color=color.white, bgcolor=colRow)
+
+    // --- دليل الخطوط ---
+    table.cell(dash, 0, 5, "الخط الأزرق", text_color=color.blue, bgcolor=colRow)
+    table.cell(dash, 1, 5, "متوسط 50 (فلتر الأمان)", text_color=color.white, bgcolor=colRow)
+
+    table.cell(dash, 0, 6, "الخط الأحمر", text_color=color.red, bgcolor=colRow)
+    table.cell(dash, 1, 6, "متوسط 200 (جدار المؤسسات)", text_color=color.white, bgcolor=colRow)
+
+    // --- القرار النهائي ---
+    table.cell(dash, 0, 7, "التوصية الحالية", text_color=color.yellow, bgcolor=color.black)
+    table.cell(dash, 1, 7, score >= 4 ? "فرصة شراء" : score <= -4 ? "تخفيف مراكز" : "مراقبة وانتظار", text_color=color.white, bgcolor=color.black)

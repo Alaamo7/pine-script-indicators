@@ -1,0 +1,249 @@
+//@version=6
+strategy("استراتيجية سوينج متكاملة - EMA + RSI + TP/SL + دعم/مقاومة", 
+     overlay=true, 
+     default_qty_type=strategy.percent_of_equity, 
+     default_qty_value=10,
+     max_boxes_count=50,
+     max_labels_count=50)
+
+//====================================================
+// Core Settings
+//====================================================
+groupCore = "Core Settings"
+emaLen       = input.int(50, title="طول EMA", group=groupCore)
+rsiLen       = input.int(14, title="طول RSI", group=groupCore)
+rsiTrigger   = input.int(50, title="مستوى RSI للدخول", group=groupCore)
+tp1_pct      = input.float(2.0, title="الهدف 1 %", step=0.5, group=groupCore)
+tp2_pct      = input.float(4.0, title="الهدف 2 %", step=0.5, group=groupCore)
+sl_pct       = input.float(2.0, title="وقف الخسارة %", step=0.5, group=groupCore)
+pivotLeft    = input.int(5, title="Pivot Left", group=groupCore)
+pivotRight   = input.int(5, title="Pivot Right", group=groupCore)
+zoneExtend   = input.int(10, title="امتداد مناطق الدعم/المقاومة", minval=1, group=groupCore)
+reportBars   = input.int(10, title="عدد الشموع لتحديد مكان التقرير", minval=3, group=groupCore)
+showLabels   = input.bool(true, title="إظهار تقارير الصفقات", group=groupCore)
+showZones    = input.bool(true, title="إظهار صناديق الدعم/المقاومة", group=groupCore)
+showLegend   = input.bool(true, title="إظهار الدليل المفتاحي", group=groupCore)
+
+//====================================================
+// Calculations
+//====================================================
+emaValue = ta.ema(close, emaLen)
+rsiValue = ta.rsi(close, rsiLen)
+
+plot(emaValue, title="EMA", color=color.orange, linewidth=2)
+
+//====================================================
+// Support / Resistance
+//====================================================
+pivotHigh = ta.pivothigh(high, pivotLeft, pivotRight)
+pivotLow  = ta.pivotlow(low, pivotLeft, pivotRight)
+
+var float S1 = na
+var float S2 = na
+var float R1 = na
+var float R2 = na
+
+if not na(pivotLow)
+    S2 := S1
+    S1 := pivotLow
+
+if not na(pivotHigh)
+    R2 := R1
+    R1 := pivotHigh
+
+plot(S1, "الدعم 1", color=color.new(color.green, 0), linewidth=2, style=plot.style_linebr)
+plot(S2, "الدعم 2", color=color.new(color.teal, 0), linewidth=2, style=plot.style_linebr)
+plot(R1, "المقاومة 1", color=color.new(color.red, 0), linewidth=2, style=plot.style_linebr)
+plot(R2, "المقاومة 2", color=color.new(color.orange, 0), linewidth=2, style=plot.style_linebr)
+
+//====================================================
+// Managed Dynamic Boxes for S/R
+//====================================================
+var box supportBox = na
+var box resistanceBox = na
+
+if showZones
+    if not na(S1) and not na(S2)
+        supportTop    = math.max(S1, S2)
+        supportBottom = math.min(S1, S2)
+
+        if na(supportBox)
+            supportBox := box.new(
+                 left=bar_index,
+                 top=supportTop,
+                 right=bar_index + zoneExtend,
+                 bottom=supportBottom,
+                 bgcolor=color.new(color.green, 90),
+                 border_color=color.green)
+        else
+            box.set_left(supportBox, bar_index)
+            box.set_right(supportBox, bar_index + zoneExtend)
+            box.set_top(supportBox, supportTop)
+            box.set_bottom(supportBox, supportBottom)
+
+    if not na(R1) and not na(R2)
+        resistanceTop    = math.max(R1, R2)
+        resistanceBottom = math.min(R1, R2)
+
+        if na(resistanceBox)
+            resistanceBox := box.new(
+                 left=bar_index,
+                 top=resistanceTop,
+                 right=bar_index + zoneExtend,
+                 bottom=resistanceBottom,
+                 bgcolor=color.new(color.red, 90),
+                 border_color=color.red)
+        else
+            box.set_left(resistanceBox, bar_index)
+            box.set_right(resistanceBox, bar_index + zoneExtend)
+            box.set_top(resistanceBox, resistanceTop)
+            box.set_bottom(resistanceBox, resistanceBottom)
+
+//====================================================
+// Entry Conditions
+//====================================================
+longEntry  = close > emaValue and ta.crossover(rsiValue, rsiTrigger)
+shortEntry = close < emaValue and ta.crossunder(rsiValue, rsiTrigger)
+
+//====================================================
+// Label Placement Helpers
+//====================================================
+lowestLow   = ta.lowest(low, reportBars)
+highestHigh = ta.highest(high, reportBars)
+
+//====================================================
+// Trade Management Visual Boxes
+//====================================================
+var box longTargetBox  = na
+var box shortTargetBox = na
+
+//====================================================
+// Long Trades
+//====================================================
+if longEntry and strategy.position_size <= 0
+    entryPrice = close
+    tp1 = entryPrice * (1 + tp1_pct / 100)
+    tp2 = entryPrice * (1 + tp2_pct / 100)
+    sl  = entryPrice * (1 - sl_pct / 100)
+
+    strategy.entry("شراء", strategy.long)
+    strategy.exit("شراء TP1/SL", from_entry="شراء", limit=tp1, stop=sl, qty_percent=50)
+    strategy.exit("شراء TP2/SL", from_entry="شراء", limit=tp2, stop=sl, qty_percent=50)
+
+    if not na(longTargetBox)
+        box.delete(longTargetBox)
+
+    longTargetBox := box.new(
+         left=bar_index,
+         top=tp2,
+         right=bar_index + zoneExtend,
+         bottom=tp1,
+         bgcolor=color.new(color.blue, 85),
+         border_color=color.blue)
+
+    if showLabels
+        label.new(
+             x=bar_index,
+             y=lowestLow - (syminfo.mintick * 20),
+             text="تقرير الصفقة:\n" +
+                  "شراء عند: " + str.tostring(entryPrice, "#.##") + "\n" +
+                  "هدف ١: " + str.tostring(tp1, "#.##") + "\n" +
+                  "هدف ٢: " + str.tostring(tp2, "#.##") + "\n" +
+                  "وقف الخسارة: " + str.tostring(sl, "#.##") + "\n" +
+                  "دعم ١: " + str.tostring(S1, "#.##") + "\n" +
+                  "دعم ٢: " + str.tostring(S2, "#.##") + "\n" +
+                  "مقاومة ١: " + str.tostring(R1, "#.##") + "\n" +
+                  "مقاومة ٢: " + str.tostring(R2, "#.##"),
+             style=label.style_label_up,
+             color=color.new(color.green, 80),
+             textcolor=color.black,
+             size=size.small)
+
+//====================================================
+// Short Trades
+//====================================================
+if shortEntry and strategy.position_size >= 0
+    entryPrice = close
+    tp1 = entryPrice * (1 - tp1_pct / 100)
+    tp2 = entryPrice * (1 - tp2_pct / 100)
+    sl  = entryPrice * (1 + sl_pct / 100)
+
+    strategy.entry("بيع", strategy.short)
+    strategy.exit("بيع TP1/SL", from_entry="بيع", limit=tp1, stop=sl, qty_percent=50)
+    strategy.exit("بيع TP2/SL", from_entry="بيع", limit=tp2, stop=sl, qty_percent=50)
+
+    if not na(shortTargetBox)
+        box.delete(shortTargetBox)
+
+    shortTargetBox := box.new(
+         left=bar_index,
+         top=tp1,
+         right=bar_index + zoneExtend,
+         bottom=tp2,
+         bgcolor=color.new(color.orange, 85),
+         border_color=color.orange)
+
+    if showLabels
+        label.new(
+             x=bar_index,
+             y=highestHigh + (syminfo.mintick * 20),
+             text="تقرير الصفقة:\n" +
+                  "بيع عند: " + str.tostring(entryPrice, "#.##") + "\n" +
+                  "هدف ١: " + str.tostring(tp1, "#.##") + "\n" +
+                  "هدف ٢: " + str.tostring(tp2, "#.##") + "\n" +
+                  "وقف الخسارة: " + str.tostring(sl, "#.##") + "\n" +
+                  "دعم ١: " + str.tostring(S1, "#.##") + "\n" +
+                  "دعم ٢: " + str.tostring(S2, "#.##") + "\n" +
+                  "مقاومة ١: " + str.tostring(R1, "#.##") + "\n" +
+                  "مقاومة ٢: " + str.tostring(R2, "#.##"),
+             style=label.style_label_down,
+             color=color.new(color.red, 80),
+             textcolor=color.white,
+             size=size.small)
+
+//====================================================
+// Entry Markers
+//====================================================
+plotshape(longEntry,  title="إشارة شراء", location=location.belowbar, style=shape.triangleup,   color=color.green, size=size.small, text="Buy")
+plotshape(shortEntry, title="إشارة بيع",  location=location.abovebar, style=shape.triangledown, color=color.red,   size=size.small, text="Sell")
+
+//====================================================
+// Legend
+//====================================================
+var table legend = table.new(position.top_right, 3, 7, border_width=1)
+
+if showLegend and barstate.isfirst
+    // Header Row
+    table.cell(legend, 0, 0, "اللون",  text_color=color.white, bgcolor=color.gray)
+    table.cell(legend, 1, 0, "الأداة",  text_color=color.white, bgcolor=color.gray)
+    table.cell(legend, 2, 0, "الوصف",   text_color=color.white, bgcolor=color.gray)
+
+    // Row 1
+    table.cell(legend, 0, 1, "", bgcolor=color.orange)
+    table.cell(legend, 1, 1, "EMA", text_color=color.orange)
+    table.cell(legend, 2, 1, "اتجاه السوق")
+
+    // Row 2
+    table.cell(legend, 0, 2, "", bgcolor=color.green)
+    table.cell(legend, 1, 2, "الدعم 1", text_color=color.green)
+    table.cell(legend, 2, 2, "منطقة دعم قوي")
+
+    // Row 3
+    table.cell(legend, 0, 3, "", bgcolor=color.teal)
+    table.cell(legend, 1, 3, "الدعم 2", text_color=color.teal)
+    table.cell(legend, 2, 3, "منطقة دعم ثانوي")
+
+    // Row 4
+    table.cell(legend, 0, 4, "", bgcolor=color.red)
+    table.cell(legend, 1, 4, "المقاومة 1", text_color=color.red)
+    table.cell(legend, 2, 4, "منطقة مقاومة قوية")
+
+    // Row 5
+    table.cell(legend, 0, 5, "", bgcolor=color.orange)
+    table.cell(legend, 1, 5, "المقاومة 2", text_color=color.orange)
+    table.cell(legend, 2, 5, "منطقة مقاومة ثانوية")
+
+    // Row 6
+    table.cell(legend, 0, 6, "", bgcolor=color.blue)
+    table.cell(legend, 1, 6, "منطقة الأهداف", text_color=color.blue)
+    table.cell(legend, 2, 6, "منطقة TP1 إلى TP2")

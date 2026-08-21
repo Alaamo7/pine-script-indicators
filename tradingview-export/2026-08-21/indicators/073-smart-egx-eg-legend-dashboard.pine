@@ -1,0 +1,125 @@
+//@version=6
+indicator("Smart EGX EG | Legend Dashboard", overlay=true)
+
+// ==== المتوسطات ====
+ema13  = ta.ema(close, 13)
+ema30  = ta.ema(close, 30)
+ema72  = ta.ema(close, 72)
+ema144 = ta.ema(close, 144)
+ema288 = ta.ema(close, 288)
+
+// ==== VWAP ====
+vwap = ta.vwap
+
+// ==== مؤشر RSI ====
+rsi = ta.rsi(close, 14)
+
+// ==== حساب ADX يدويًا ====
+adx_length = 14
+up = ta.change(high)
+down = -ta.change(low)
+plusDM = na(up) ? na : (up > down and up > 0 ? up : 0)
+minusDM = na(down) ? na : (down > up and down > 0 ? down : 0)
+trur = ta.rma(ta.tr, adx_length)
+plus = 100 * ta.rma(plusDM, adx_length) / trur
+minus = 100 * ta.rma(minusDM, adx_length) / trur
+sum = plus + minus
+adx = 100 * ta.rma(math.abs(plus - minus) / (sum == 0 ? 1 : sum), adx_length)
+
+// ==== Stochastic ====
+kLength = 14
+dLength = 3
+k = ta.stoch(close, high, low, kLength)
+d = ta.sma(k, dLength)
+
+// ==== Bollinger Bands ====
+bbLength = 20
+bbMult = 2.0
+bbBasis = ta.sma(close, bbLength)
+bbUpper = bbBasis + bbMult * ta.stdev(close, bbLength)
+bbLower = bbBasis - bbMult * ta.stdev(close, bbLength)
+
+// ==== Ichimoku ====
+conversionPeriods = 9
+basePeriods = 26
+displacement = 26
+conversionLine = (ta.highest(high, conversionPeriods) + ta.lowest(low, conversionPeriods)) / 2
+baseLine = (ta.highest(high, basePeriods) + ta.lowest(low, basePeriods)) / 2
+leadLine1 = (conversionLine + baseLine) / 2
+leadLine2 = (ta.highest(high, basePeriods * 2) + ta.lowest(low, basePeriods * 2)) / 2
+
+// ==== MACD ====
+[macdLine, signalLine, _] = ta.macd(close, 12, 26, 9)
+
+// ==== رسم المؤشرات على الشارت ====
+plot(ema13, "EMA13", color=#FFA500)
+plot(ema30, "EMA30", color=#0000FF)
+plot(ema72, "EMA72", color=#008080)
+plot(ema144, "EMA144", color=#FF00FF)
+plot(ema288, "EMA288", color=#808080, linewidth=2)
+plot(vwap, "VWAP", color=#FFD700, linewidth=2)
+
+plot(rsi, "RSI", color=#00FF00, display=display.none)
+plot(adx, "ADX", color=#000080, display=display.none)
+plot(k, "Stoch K", color=#00FFFF, display=display.none)
+plot(d, "Stoch D", color=#800080, display=display.none)
+plot(bbUpper, "BB Upper", color=#008000, display=display.none)
+plot(bbLower, "BB Lower", color=#FF0000, display=display.none)
+plot(bbBasis, "BB Basis", color=#808080, display=display.none)
+plot(macdLine, "MACD", color=#FFFF00, display=display.none)
+plot(signalLine, "Signal", color=#FFA500, display=display.none)
+plot(conversionLine, "Tenkan-sen", color=#FFA500, display=display.none)
+plot(baseLine, "Kijun-sen", color=#0000FF, display=display.none)
+plot(leadLine1, "Span A", color=#008000, offset=displacement, display=display.none)
+plot(leadLine2, "Span B", color=#FF0000, offset=displacement, display=display.none)
+
+// ==== دوال تلوين حسب القيمة ====
+color_rsi(val) =>
+    val >= 70 ? #FF0000 : val <= 30 ? #00FF00 : #C0C0C0
+
+color_adx(val) =>
+    val >= 25 ? #00FF00 : #C0C0C0
+
+// ==== إنشاء جدول Legend مدمج بالقيم ====
+var table legendTable = table.new(position.top_right, 2, 18, border_width=1)
+
+if barstate.islast
+    table.clear(legendTable, 0, 0)
+    // اسم المؤشر (العمود 0) | القيمة اللحظية (العمود 1)
+    table.cell(legendTable, 0,  0, "EMA13",     text_color=#FFA500)
+    table.cell(legendTable, 0,  1, "EMA30",     text_color=#0000FF)
+    table.cell(legendTable, 0,  2, "EMA72",     text_color=#008080)
+    table.cell(legendTable, 0,  3, "EMA144",    text_color=#FF00FF)
+    table.cell(legendTable, 0,  4, "EMA288",    text_color=#808080)
+    table.cell(legendTable, 0,  5, "RSI",       text_color=#00FF00)
+    table.cell(legendTable, 0,  6, "ADX",       text_color=#000080)
+    table.cell(legendTable, 0,  7, "Stoch K",   text_color=#00FFFF)
+    table.cell(legendTable, 0,  8, "Stoch D",   text_color=#800080)
+    table.cell(legendTable, 0,  9, "BB Upper",  text_color=#008000)
+    table.cell(legendTable, 0, 10, "BB Lower",  text_color=#FF0000)
+    table.cell(legendTable, 0, 11, "MACD",      text_color=#FFFF00)
+    table.cell(legendTable, 0, 12, "Signal",    text_color=#FFA500)
+    table.cell(legendTable, 0, 13, "Tenkan",    text_color=#FFA500)
+    table.cell(legendTable, 0, 14, "Kijun",     text_color=#0000FF)
+    table.cell(legendTable, 0, 15, "SpanA",     text_color=#008000)
+    table.cell(legendTable, 0, 16, "SpanB",     text_color=#FF0000)
+    table.cell(legendTable, 0, 17, "VWAP",      text_color=#FFD700)
+    // عمود القيم:
+    table.cell(legendTable, 1,  0, str.tostring(ema13, "#.##"),    text_color=#FFA500)
+    table.cell(legendTable, 1,  1, str.tostring(ema30, "#.##"),    text_color=#0000FF)
+    table.cell(legendTable, 1,  2, str.tostring(ema72, "#.##"),    text_color=#008080)
+    table.cell(legendTable, 1,  3, str.tostring(ema144, "#.##"),   text_color=#FF00FF)
+    table.cell(legendTable, 1,  4, str.tostring(ema288, "#.##"),   text_color=#808080)
+    table.cell(legendTable, 1,  5, str.tostring(rsi, "#.##"),      text_color=#FFFFFF, bgcolor=color_rsi(rsi))
+    table.cell(legendTable, 1,  6, str.tostring(adx, "#.##"),      text_color=#FFFFFF, bgcolor=color_adx(adx))
+    table.cell(legendTable, 1,  7, str.tostring(k, "#.##"),        text_color=#00FFFF)
+    table.cell(legendTable, 1,  8, str.tostring(d, "#.##"),        text_color=#800080)
+    table.cell(legendTable, 1,  9, str.tostring(bbUpper, "#.##"),  text_color=#008000)
+    table.cell(legendTable, 1, 10, str.tostring(bbLower, "#.##"),  text_color=#FF0000)
+    table.cell(legendTable, 1, 11, str.tostring(macdLine, "#.##"), text_color=#FFFF00)
+    table.cell(legendTable, 1, 12, str.tostring(signalLine, "#.##"), text_color=#FFA500)
+    table.cell(legendTable, 1, 13, str.tostring(conversionLine, "#.##"), text_color=#FFA500)
+    table.cell(legendTable, 1, 14, str.tostring(baseLine, "#.##"), text_color=#0000FF)
+    table.cell(legendTable, 1, 15, str.tostring(leadLine1, "#.##"), text_color=#008000)
+    table.cell(legendTable, 1, 16, str.tostring(leadLine2, "#.##"), text_color=#FF0000)
+    table.cell(legendTable, 1, 17, str.tostring(vwap, "#.##"),     text_color=#FFD700)

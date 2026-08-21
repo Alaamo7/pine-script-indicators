@@ -1,0 +1,137 @@
+//@version=6
+indicator("Smart Market Scanner v2.1", overlay=true, max_labels_count=500)
+
+// ==============================
+// 🔹 INPUTS
+// ==============================
+useRSI       = input.bool(true,  "Use RSI Filter")
+useADX       = input.bool(true,  "Use ADX Filter")
+usePullback  = input.bool(true,  "Detect Pullback")
+useLiquidity = input.bool(true,  "Detect Liquidity Sweep")
+useOB        = input.bool(true,  "Detect Order Block")
+
+// ==============================
+// 🔹 TREND
+// ==============================
+ema50  = ta.ema(close, 50)
+ema200 = ta.ema(close, 200)
+
+bullTrend = ema50 > ema200
+bearTrend = ema50 < ema200
+
+plot(ema50,  color=color.blue)
+plot(ema200, color=color.orange)
+
+bgcolor(bullTrend ? color.new(color.green,92) :
+       bearTrend ? color.new(color.red,92) : na)
+
+// ==============================
+// 🔹 RSI
+// ==============================
+rsi = ta.rsi(close, 14)
+validRSI = rsi < 70 and rsi > 40
+
+// ==============================
+// 🔹 ADX (FIXED)
+// ==============================
+[diplus, diminus, adx] = ta.dmi(14, 14)
+strongTrend = adx > 20
+
+// ==============================
+// 🔹 CANDLE PATTERN
+// ==============================
+bullishEngulfing =
+     close[1] < open[1] and
+     close > open and
+     close > open[1] and
+     open < close[1]
+
+// ==============================
+// 🔹 PULLBACK DETECTOR
+// ==============================
+pullback = math.abs(close - ema50) / ema50 < 0.01
+
+plotshape(usePullback and pullback,
+     location=location.belowbar,
+     style=shape.circle,
+     color=color.yellow,
+     size=size.tiny)
+
+// ==============================
+// 🔹 LIQUIDITY SWEEP
+// ==============================
+prevLow = ta.lowest(low[1], 5)
+
+sweepLow =
+     low < prevLow and
+     close > prevLow
+
+plotshape(useLiquidity and sweepLow,
+     location=location.belowbar,
+     style=shape.triangleup,
+     color=color.fuchsia,
+     size=size.small)
+
+// ==============================
+// 🔹 SIMPLE ORDER BLOCK
+// ==============================
+bullImpulse = close > high[1] and close > ema50
+
+orderBlock =
+     open[1] > close[1] and
+     bullImpulse
+
+if useOB and orderBlock
+    box.new(
+        left=bar_index-1,
+        right=bar_index,
+        top=high[1],
+        bottom=low[1],
+        bgcolor=color.new(color.green,85),
+        border_color=color.green)
+
+// ==============================
+// 🔹 FINAL ENTRY LOGIC
+// ==============================
+longSignal =
+     bullTrend and
+     bullishEngulfing and
+     (not useRSI or validRSI) and
+     (not useADX or strongTrend) and
+     (not usePullback or pullback)
+
+if longSignal
+    label.new(bar_index, low,
+        "SMART BUY",
+        style=label.style_label_up,
+        color=color.green,
+        textcolor=color.white)
+
+// ==============================
+// 🔹 ALERT
+// ==============================
+alertcondition(longSignal,
+     title="Smart Buy",
+     message="Smart Market Scanner v2.1 - Buy Signal")
+
+// ==============================
+// 🔹 DASHBOARD
+// ==============================
+var label dashboard = label.new(bar_index, na, "")
+
+trendText =
+     bullTrend ? "Bullish 📈" :
+     bearTrend ? "Bearish 📉" :
+     "Sideways"
+
+summary =
+     "Trend: " + trendText +
+     "\nRSI: " + str.tostring(rsi, "#.##") +
+     "\nADX: " + str.tostring(adx, "#.##") +
+     "\nPullback: " + (pullback ? "Yes" : "No")
+
+label.set_xy(dashboard, bar_index, high)
+label.set_text(dashboard, summary)
+label.set_style(dashboard, label.style_label_left)
+label.set_color(dashboard, color.black)
+label.set_textcolor(dashboard, color.white)

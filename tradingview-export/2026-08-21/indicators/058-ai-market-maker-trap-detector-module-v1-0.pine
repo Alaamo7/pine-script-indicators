@@ -1,0 +1,41 @@
+//@version=6
+indicator("AI Market Maker Trap Detector - Module v1.0", overlay=true)
+
+// === INPUTS ===
+lookback = input.int(30, "Lookback Period", minval=5)
+volumeSpikeMultiplier = input.float(1.8, "Volume Spike Multiplier", minval=1.0)
+wickThreshold = input.float(0.4, "Wick Threshold %", minval=0.1)
+
+// === BASIC CALCULATIONS ===
+volMA = ta.sma(volume, lookback)
+volumeSpike = volume > volMA * volumeSpikeMultiplier
+
+upperWick = high - math.max(close, open)
+lowerWick = math.min(close, open) - low
+bodySize = math.abs(close - open)
+totalRange = high - low
+
+upperWickPct = upperWick / totalRange
+lowerWickPct = lowerWick / totalRange
+
+// === TRAP DETECTION ===
+// Bull Trap: sudden breakout with upper wick + high volume
+bullTrap = volumeSpike and upperWickPct > wickThreshold and close < open
+
+// Bear Trap: sudden breakdown with lower wick + high volume
+bearTrap = volumeSpike and lowerWickPct > wickThreshold and close > open
+
+// === PLOT RESULTS ===
+plotshape(bullTrap, style=shape.labeldown, location=location.abovebar, color=color.red, text="Bull Trap")
+plotshape(bearTrap, style=shape.labelup, location=location.belowbar, color=color.lime, text="Bear Trap")
+
+bgcolor(bullTrap ? color.new(color.red, 80) : na)
+bgcolor(bearTrap ? color.new(color.lime, 80) : na)
+
+// === DASHBOARD ===
+var table dash = table.new(position.bottom_right, 2, 2, border_width=1)
+
+if bar_index % 5 == 0
+    table.cell(dash, 0, 0, "Trap AI")
+    trapStatus = bullTrap ? "Bull Trap 🔴" : bearTrap ? "Bear Trap 🟢" : "No Trap"
+    table.cell(dash, 1, 0, trapStatus)

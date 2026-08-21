@@ -1,0 +1,85 @@
+//@version=5
+indicator("Smart Investor Pro - Chart Overlays (v5 Final)", shorttitle="SI Pro - Chart (v5)", overlay=true)
+
+// --- تعريف الألوان ---
+color color_ema9 = color.new(color.aqua, 0)
+color color_ema21 = color.new(color.blue, 0)
+color color_vwap = color.new(color.yellow, 0)
+color color_bb = color.gray
+color color_sma50 = color.new(color.orange, 0)
+color color_ema100 = color.new(color.purple, 0)
+color color_ema200 = color.new(color.red, 0)
+color color_ichi_conv = color.new(color.green, 50)
+color color_ichi_base = color.new(color.red, 50)
+color color_ichi_cloud_up = color.new(color.green, 90)
+color color_ichi_cloud_down = color.new(color.red, 90)
+
+// --- دالة مساعدة لإنشاء خانة في الدليل المفتاحي ---
+f_add_legend_entry(table_id, row, indicator_name, indicator_color) =>
+    table.cell(table_id, 0, row, text="■", text_color=indicator_color, text_size=size.small)
+    table.cell(table_id, 1, row, text=indicator_name, text_size=size.small)
+
+// --- المضارب (قصير جداً) ---
+ema_short1 = ta.ema(close, 9)
+ema_short2 = ta.ema(close, 21)
+plot(ema_short1, color=color_ema9, linewidth=1, title="EMA 9 (مضارب)")
+plot(ema_short2, color=color_ema21, linewidth=1, title="EMA 21 (مضارب)")
+
+// VWAP
+vwap = ta.vwap(hlc3)
+plot(vwap, color=color_vwap, title="VWAP (مضارب)")
+
+// Bollinger Bands
+basis = ta.sma(close, 20)
+dev = 2.0 * ta.stdev(close, 20)
+upper_band = basis + dev
+lower_band = basis - dev
+plot(basis, "BB Basis", color=color_bb)
+p_upper = plot(upper_band, "BB Upper", color=color_bb)
+p_lower = plot(lower_band, "BB Lower", color=color_bb)
+fill(p_upper, p_lower, color=color.new(color_bb, 90), title="BB Fill")
+
+//--- المستثمر قصير المدى ---
+sma50 = ta.sma(close, 50)
+plot(sma50, color=color_sma50, linewidth=2, title="SMA 50 (قصير المدى)")
+
+//--- المستثمر متوسط المدى ---
+ema100 = ta.ema(close, 100)
+plot(ema100, color=color_ema100, linewidth=2, title="EMA 100 (متوسط المدى)")
+
+// Ichimoku Cloud (إيشيموكو)
+conversionPeriods = 9, basePeriods = 26, laggingSpan2Periods = 52, displacement = 26
+conversionLine = (ta.highest(high, conversionPeriods) + ta.lowest(low, conversionPeriods)) / 2
+baseLine = (ta.highest(high, basePeriods) + ta.lowest(low, basePeriods)) / 2
+leadLine1 = (conversionLine + baseLine) / 2
+leadLine2 = (ta.highest(high, laggingSpan2Periods) + ta.lowest(low, laggingSpan2Periods)) / 2
+plot(conversionLine, color=color_ichi_conv, title="Conversion Line")
+plot(baseLine, color=color_ichi_base, title="Base Line")
+p1 = plot(leadLine1, offset=displacement, color=color.new(color_ichi_cloud_up, 50), title="Lead 1")
+p2 = plot(leadLine2, offset=displacement, color=color.new(color_ichi_cloud_down, 50), title="Lead 2")
+fill(p1, p2, color=leadLine1 > leadLine2 ? color_ichi_cloud_up : color_ichi_cloud_down)
+
+//--- المستثمر بعيد المدى ---
+ema200 = ta.ema(close, 200)
+plot(ema200, color=color_ema200, linewidth=3, title="EMA 200 (بعيد المدى)")
+
+// --- الدليل المفتاحي (Legend) ---
+// ** تم التعديل هنا لنقل الجدول إلى اليمين **
+var table legend = table.new(position.top_right, 2, 11, border_width=1)
+
+if barstate.islast
+    table.cell(legend, 1, 0, "دليل المؤشرات", bgcolor=color.new(color.gray, 50))
+    f_add_legend_entry(legend, 1, "EMA 9 (مضارب)", color_ema9)
+    f_add_legend_entry(legend, 2, "EMA 21 (مضارب)", color_ema21)
+    f_add_legend_entry(legend, 3, "VWAP", color_vwap)
+    f_add_legend_entry(legend, 4, "Bollinger Bands", color_bb)
+    f_add_legend_entry(legend, 5, "SMA 50 (قصير)", color_sma50)
+    f_add_legend_entry(legend, 6, "EMA 100 (متوسط)", color_ema100)
+    f_add_legend_entry(legend, 7, "EMA 200 (طويل)", color_ema200)
+    f_add_legend_entry(legend, 8, "Tenkan-sen (تحويل)", color_ichi_conv)
+    f_add_legend_entry(legend, 9, "Kijun-sen (أساس)", color_ichi_base)
+    f_add_legend_entry(legend, 10, "Kumo (سحابة)", color_ichi_cloud_up)
+
+// --- التنبيهات ---
+alertcondition(ta.crossover(ema_short1, ema_short2), title="تقاطع EMA للمضارب (شراء)", message="EMA 9 crossed above EMA 21 (شراء قصير المدى)")
+alertcondition(ta.crossunder(ema_short1, ema_short2), title="تقاطع EMA للمضارب (بيع)", message="EMA 9 crossed below EMA 21 (بيع قصير المدى)")

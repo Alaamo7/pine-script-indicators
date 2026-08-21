@@ -1,0 +1,76 @@
+//@version=6
+indicator("Smart Short-Term Investor Pro", overlay=true)
+
+// === المتوسطات المتحركة EMA ===
+ema20 = ta.ema(close, 20)
+ema50 = ta.ema(close, 50)
+
+plot(ema20, title="EMA 20", color=color.rgb(0, 0, 255), linewidth=2) // أزرق
+plot(ema50, title="EMA 50", color=color.rgb(255, 165, 0), linewidth=2) // برتقالي
+
+// === مؤشر القوة النسبية RSI ===
+rsiLength = input.int(14, title="RSI Length")
+rsiSource = input.source(close, title="RSI Source")
+rsi = ta.rsi(rsiSource, rsiLength)
+
+rsiOverbought = input.int(70, title="RSI Overbought Level")
+rsiOversold = input.int(30, title="RSI Oversold Level")
+
+// === MACD ===
+[macdLine, signalLine, _] = ta.macd(close, 12, 26, 9)
+
+// === VWAP ===
+vwapSource = input.bool(true, title="Use HLC3 for VWAP?")
+vwap = vwapSource ? ta.vwap(hlc3) : ta.vwap(close)
+
+plot(vwap, title="VWAP", color=color.rgb(255, 255, 0), linewidth=2) // أصفر
+
+// === دعم ومقاومة تلقائي باستخدام Pivot High/Low ===
+pivotLookback = input.int(10, title="Pivot Lookback Period")
+pivotHigh = ta.pivothigh(high, pivotLookback, pivotLookback)
+pivotLow = ta.pivotlow(low, pivotLookback, pivotLookback)
+
+var float support = na
+var float resistance = na
+
+if not na(pivotLow)
+    support := low[pivotLookback]
+if not na(pivotHigh)
+    resistance := high[pivotLookback]
+
+plot(support, title="Support", color=color.rgb(0, 255, 0), style=plot.style_circles, linewidth=2) // أخضر
+plot(resistance, title="Resistance", color=color.rgb(255, 0, 0), style=plot.style_circles, linewidth=2) // أحمر
+
+// === إشارات شراء وبيع مع فلترة RSI و MACD ===
+buyCross = ta.crossover(ema20, ema50)
+sellCross = ta.crossunder(ema20, ema50)
+
+validBuy = buyCross and (rsi < rsiOverbought) and (macdLine > signalLine)
+validSell = sellCross and (rsi > rsiOversold) and (macdLine < signalLine)
+
+plotshape(validBuy, title="Buy Signal", location=location.belowbar, color=color.rgb(0, 255, 0), style=shape.labelup, size=size.small, text="BUY")
+plotshape(validSell, title="Sell Signal", location=location.abovebar, color=color.rgb(255, 0, 0), style=shape.labeldown, size=size.small, text="SELL")
+
+// === Stop Loss و Take Profit تلقائي ===
+takeProfitRatio = input.float(1.05, title="Take Profit Multiplier (+5%)")
+stopLossRatio = input.float(0.95, title="Stop Loss Multiplier (-5%)")
+
+var float entryPrice = na
+var bool inPosition = false
+
+if (validBuy)
+    entryPrice := close
+    inPosition := true
+
+if (validSell)
+    inPosition := false
+
+takeProfitPrice = entryPrice * takeProfitRatio
+stopLossPrice = entryPrice * stopLossRatio
+
+plot(inPosition ? takeProfitPrice : na, title="Take Profit", color=color.rgb(0, 255, 0), style=plot.style_linebr, linewidth=1)
+plot(inPosition ? stopLossPrice : na, title="Stop Loss", color=color.rgb(255, 0, 0), style=plot.style_linebr, linewidth=1)
+
+// === تنبيهات شراء وبيع ===
+alertcondition(validBuy, title="Buy Alert", message="🔔 Buy Signal Confirmed!")
+alertcondition(validSell, title="Sell Alert", message="🔔 Sell Signal Confirmed!")

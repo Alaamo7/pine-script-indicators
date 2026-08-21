@@ -1,0 +1,345 @@
+//@version=6
+indicator("Expert EGX Analyst Pro v2 (EGX + SMC Lite + Dashboard)", overlay=true, max_labels_count=200, max_lines_count=200)
+
+//====================================================
+// 0) CORE SETTINGS
+//====================================================
+groupCore = "Core"
+mobileMode    = input.bool(true,  "Mobile Mode", group=groupCore)
+showPlots     = input.bool(true,  "Show Plots (MA/EGX/VWAP)", group=groupCore)
+showSignals   = input.bool(true,  "Show Signals (BOS/CHOCH/Sweeps/Traps)", group=groupCore)
+showDashboard = input.bool(true,  "Show Dashboard", group=groupCore)
+showLegend    = input.bool(true,  "Show Legend", group=groupCore)
+
+dashPosOpt   = input.string("Top Right", "Dashboard Position", options=["Top Right","Bottom Right","Middle Right","Top Left","Bottom Left"], group=groupCore)
+legendPosOpt = input.string("Bottom Right", "Legend Position", options=["Top Right","Bottom Right","Middle Right","Top Left","Bottom Left"], group=groupCore)
+
+f_pos(posOpt) =>
+    posOpt == "Top Right" ? position.top_right :
+     posOpt == "Bottom Right" ? position.bottom_right :
+     posOpt == "Middle Right" ? position.middle_right :
+     posOpt == "Top Left" ? position.top_left : position.bottom_left
+
+dashPos   = f_pos(dashPosOpt)
+legendPos = f_pos(legendPosOpt)
+
+txtTiny  = mobileMode ? size.tiny  : size.small
+txtSmall = mobileMode ? size.small : size.normal
+
+//====================================================
+// 1) USER PROFILE (Multi Trader Style)
+//====================================================
+groupProfile = "Profile"
+userType = input.string("Day Trader", "User Type", options=["Scalper","Day Trader","Swing Trader","Investor"], group=groupProfile)
+useEMA   = input.bool(true, "Use EMA for Profile MAs (else SMA)", group=groupProfile)
+
+f_user_profile(_type) =>
+    fastLen = _type == "Scalper" ? 5 : _type == "Day Trader" ? 9 : _type == "Swing Trader" ? 20 : 50
+    slowLen = _type == "Scalper" ? 21 : _type == "Day Trader" ? 50 : _type == "Swing Trader" ? 100 : 200
+    rsiLen  = _type == "Scalper" ? 7 : _type == "Day Trader" ? 14 : _type == "Swing Trader" ? 20 : 30
+    rsiOB   = _type == "Scalper" ? 80 : _type == "Day Trader" ? 70 : _type == "Swing Trader" ? 68 : 65
+    rsiOS   = _type == "Scalper" ? 20 : _type == "Day Trader" ? 30 : _type == "Swing Trader" ? 32 : 35
+    [fastLen, slowLen, rsiLen, rsiOB, rsiOS]
+
+[maFastLen, maSlowLen, rsiLen, rsiOB, rsiOS] = f_user_profile(userType)
+
+ma_fast = useEMA ? ta.ema(close, maFastLen) : ta.sma(close, maFastLen)
+ma_slow = useEMA ? ta.ema(close, maSlowLen) : ta.sma(close, maSlowLen)
+
+trendBull = ma_fast > ma_slow
+trendBear = ma_fast < ma_slow
+
+//====================================================
+// 2) EGX PACK (EMA13/30/72/144/288 + VWAP)
+//====================================================
+groupEGX = "EGX Pack"
+enableEGXPack = input.bool(true, "Enable EGX Pack", group=groupEGX)
+
+getBarsPerSession() =>
+    // EGX session: 270 minutes (10:00 -> 14:30)
+    bars = 1
+    if timeframe.isminutes
+        if timeframe.multiplier == 1
+            bars := 270
+        else if timeframe.multiplier == 5
+            bars := 54
+        else if timeframe.multiplier == 10
+            bars := 27
+        else if timeframe.multiplier == 15
+            bars := 18
+        else if timeframe.multiplier == 30
+            bars := 9
+        else if timeframe.multiplier == 45
+            bars := 6
+        else if timeframe.multiplier == 60
+            bars := 5
+    bars
+
+barsPerSession = getBarsPerSession()
+
+// clamp helper
+f_len(x) => math.min(math.max(x, 1), 4999)
+
+ema13_eg  = ta.ema(close, f_len(math.round(13  * barsPerSession)))
+ema30_eg  = ta.ema(close, f_len(math.round(30  * barsPerSession)))
+ema72_eg  = ta.ema(close, f_len(math.round(72  * barsPerSession)))
+ema144_eg = ta.ema(close, f_len(math.round(144 * barsPerSession)))
+ema288_eg = ta.ema(close, f_len(math.round(288 * barsPerSession)))
+
+vwap_val = ta.vwap
+
+// plots (NO local-scope)
+plot(showPlots and enableEGXPack ? ema13_eg  : na, "EMA13 EG",  color=color.orange)
+plot(showPlots and enableEGXPack ? ema30_eg  : na, "EMA30 EG",  color=color.blue)
+plot(showPlots and enableEGXPack ? ema72_eg  : na, "EMA72 EG",  color=color.teal)
+plot(showPlots and enableEGXPack ? ema144_eg : na, "EMA144 EG", color=color.fuchsia)
+plot(showPlots and enableEGXPack ? ema288_eg : na, "EMA288 EG", color=color.gray, linewidth=2)
+plot(showPlots and enableEGXPack ? vwap_val  : na, "VWAP",      color=color.yellow, linewidth=2)
+
+// Profile MA plots
+plot(showPlots ? ma_fast : na, "Profile Fast MA", color=color.new(color.aqua, 0), linewidth=2)
+plot(showPlots ? ma_slow : na, "Profile Slow MA", color=color.new(color.purple, 0), linewidth=2)
+
+//====================================================
+// 3) MOMENTUM + VOLUME (RSI / MACD / ADX / Volume Spike / Climax)
+//====================================================
+groupMom = "Momentum / Volume"
+useADXFilter = input.bool(true, "Use ADX Filter", group=groupMom)
+adxLen       = input.int(14, "ADX Length", group=groupMom)
+adxStrong    = input.float(25, "ADX Strong >=", group=groupMom)
+
+useMACD      = input.bool(true, "Use MACD Cross", group=groupMom)
+macdFast     = input.int(12, "MACD Fast", group=groupMom)
+macdSlow     = input.int(26, "MACD Slow", group=groupMom)
+macdSignal   = input.int(9,  "MACD Signal", group=groupMom)
+
+volLen   = input.int(20, "Volume MA Length", group=groupMom)
+volSpikeMult = input.float(1.8, "Volume Spike Mult", minval=1.0, group=groupMom)
+climaxMult   = input.float(3.0, "Climax Volume Mult", minval=1.0, group=groupMom)
+
+rsi = ta.rsi(close, rsiLen)
+[plusDI, minusDI, adx] = ta.dmi(adxLen, 14)
+adxOK = not useADXFilter or adx >= adxStrong
+
+[macdLine, signalLine, _] = ta.macd(close, macdFast, macdSlow, macdSignal)
+macdBuy  = useMACD and ta.crossover(macdLine, signalLine)
+macdSell = useMACD and ta.crossunder(macdLine, signalLine)
+
+volMA     = ta.sma(volume, volLen)
+volSpike  = volume > volMA * volSpikeMult
+climaxVol = volume > volMA * climaxMult
+
+//====================================================
+// 4) STRUCTURE (BOS / CHOCH) - Lite & confirmed pivots
+//====================================================
+groupStruct = "Structure (SMC Lite)"
+enableStructure = input.bool(true, "Enable BOS/CHOCH", group=groupStruct)
+pivLen = input.int(3, "Pivot Length", minval=2, maxval=10, group=groupStruct)
+maxStructLabels = input.int(40, "Max Structure Labels", minval=10, maxval=150, group=groupStruct)
+
+ph = ta.pivothigh(high, pivLen, pivLen)
+pl = ta.pivotlow(low,  pivLen, pivLen)
+
+var float lastSwingHigh = na
+var float lastSwingLow  = na
+if not na(ph)
+    lastSwingHigh := ph
+if not na(pl)
+    lastSwingLow := pl
+
+// State
+var int bias = 0  // 1 bull, -1 bear, 0 unknown
+
+bosUp   = enableStructure and not na(lastSwingHigh) and close > lastSwingHigh and adxOK
+bosDown = enableStructure and not na(lastSwingLow)  and close < lastSwingLow  and adxOK
+
+chochUp   = enableStructure and bias == -1 and bosUp
+chochDown = enableStructure and bias ==  1 and bosDown
+
+// Update bias
+if bosUp
+    bias := 1
+if bosDown
+    bias := -1
+
+// Structure labels limiter
+var int structCount = 0
+f_canLabel() =>
+    structCount < maxStructLabels
+
+if showSignals and f_canLabel() and bosUp
+    label.new(bar_index, high, chochUp ? "CHOCH↑" : "BOS↑", style=label.style_label_down, textcolor=color.white,
+      color=chochUp ? color.new(color.fuchsia, 0) : color.new(color.lime, 0), size=txtTiny)
+    structCount += 1
+
+if showSignals and f_canLabel() and bosDown
+    label.new(bar_index, low, chochDown ? "CHOCH↓" : "BOS↓", style=label.style_label_up, textcolor=color.white,
+      color=chochDown ? color.new(color.fuchsia, 0) : color.new(color.red, 0), size=txtTiny)
+    structCount += 1
+
+//====================================================
+// 5) LIQUIDITY SWEEPS + TRAPS (no boxes, just signals)
+//====================================================
+groupLiq = "Liquidity / Traps"
+enableSweeps = input.bool(true, "Enable Liquidity Sweeps", group=groupLiq)
+wickRatioMin = input.float(1.6, "Min Wick/Body Ratio", minval=0.5, step=0.1, group=groupLiq)
+needVolSpike = input.bool(true, "Require Volume Spike", group=groupLiq)
+
+body = math.abs(close - open)
+upperWick = high - math.max(open, close)
+lowerWick = math.min(open, close) - low
+wickOkUp  = body > 0 ? (upperWick / body) >= wickRatioMin : false
+wickOkDn  = body > 0 ? (lowerWick / body) >= wickRatioMin : false
+
+// sweep logic: wick breaks swing then close returns back under/over it
+sweepHigh = enableSweeps and not na(lastSwingHigh) and high > lastSwingHigh and close < lastSwingHigh and wickOkUp and (not needVolSpike or volSpike)
+sweepLow  = enableSweeps and not na(lastSwingLow)  and low  < lastSwingLow  and close > lastSwingLow  and wickOkDn and (not needVolSpike or volSpike)
+
+// simple traps
+bearTrap = enableSweeps and volSpike and close > open and high > high[1] and close < high[1]   // bull candle but rejected
+bullTrap = enableSweeps and volSpike and close < open and low  < low[1]  and close > low[1]    // bear candle but rejected
+
+if showSignals and sweepHigh
+    label.new(bar_index, high, "Sweep High", style=label.style_label_down, textcolor=color.white, color=color.new(color.orange, 0), size=txtTiny)
+
+if showSignals and sweepLow
+    label.new(bar_index, low,  "Sweep Low",  style=label.style_label_up,   textcolor=color.white, color=color.new(color.aqua, 0), size=txtTiny)
+
+if showSignals and bearTrap
+    label.new(bar_index, high, "Bear Trap", style=label.style_label_down, textcolor=color.white, color=color.new(color.red, 0), size=txtTiny)
+
+if showSignals and bullTrap
+    label.new(bar_index, low,  "Bull Trap", style=label.style_label_up,   textcolor=color.white, color=color.new(color.lime, 0), size=txtTiny)
+
+//====================================================
+// 6) HEAT SCORE (decision helper, not a recommendation)
+//====================================================
+groupScore = "Score"
+enableScore = input.bool(true, "Enable Score", group=groupScore)
+
+score = 0
+score += trendBull ? 2 : trendBear ? -2 : 0
+score += rsi > 50 ? 1 : rsi < 50 ? -1 : 0
+score += adx >= adxStrong ? 1 : 0
+score += macdBuy ? 1 : macdSell ? -1 : 0
+score += volSpike ? 1 : 0
+score += sweepLow ? 2 : sweepHigh ? -2 : 0
+score += bullTrap ? 1 : bearTrap ? -1 : 0
+
+scoreText =
+     score >= 4  ? "A+ Bull"
+   : score >= 2  ? "A Bull"
+   : score <= -4 ? "A+ Bear"
+   : score <= -2 ? "A Bear"
+   : "Neutral"
+
+//====================================================
+// 7) DASHBOARD (table) - safe for mobile
+//====================================================
+var table dash = table.new(dashPos, 3, 9, border_width=1)
+f_check(cond) => cond ? "✅" : "❌"
+
+if showDashboard and barstate.islast
+    table.clear(dash, 0, 0)
+
+    table.cell(dash, 0, 0, "Item", bgcolor=color.new(color.blue, 0), text_color=color.white, text_size=txtSmall)
+    table.cell(dash, 1, 0, "State", bgcolor=color.new(color.blue, 0), text_color=color.white, text_size=txtSmall)
+    table.cell(dash, 2, 0, "Note", bgcolor=color.new(color.blue, 0), text_color=color.white, text_size=txtSmall)
+
+    table.cell(dash, 0, 1, "Trend", text_color=color.yellow, text_size=txtTiny)
+    table.cell(dash, 1, 1, trendBull ? "Bull" : trendBear ? "Bear" : "—", text_size=txtTiny)
+    table.cell(dash, 2, 1, "Profile MA", text_size=txtTiny)
+
+    table.cell(dash, 0, 2, "RSI", text_color=color.yellow, text_size=txtTiny)
+    table.cell(dash, 1, 2, str.tostring(rsi, "#.##"), text_size=txtTiny)
+    table.cell(dash, 2, 2, "OB/OS: "+str.tostring(rsiOB)+"/"+str.tostring(rsiOS), text_size=txtTiny)
+
+    table.cell(dash, 0, 3, "ADX", text_color=color.yellow, text_size=txtTiny)
+    table.cell(dash, 1, 3, str.tostring(adx, "#.##"), text_size=txtTiny)
+    table.cell(dash, 2, 3, adxOK ? "OK" : "Weak", text_size=txtTiny)
+
+    table.cell(dash, 0, 4, "Vol", text_color=color.yellow, text_size=txtTiny)
+    table.cell(dash, 1, 4, volSpike ? "Spike" : "Normal", text_size=txtTiny)
+    table.cell(dash, 2, 4, climaxVol ? "Climax!" : "—", text_size=txtTiny)
+
+    table.cell(dash, 0, 5, "BOS/CHOCH", text_color=color.yellow, text_size=txtTiny)
+    table.cell(dash, 1, 5, bosUp ? "BOS↑" : bosDown ? "BOS↓" : "—", text_size=txtTiny)
+    table.cell(dash, 2, 5, chochUp ? "CHOCH↑" : chochDown ? "CHOCH↓" : "—", text_size=txtTiny)
+
+    table.cell(dash, 0, 6, "Sweeps", text_color=color.yellow, text_size=txtTiny)
+    table.cell(dash, 1, 6, sweepLow ? "Sweep Low" : sweepHigh ? "Sweep High" : "—", text_size=txtTiny)
+    table.cell(dash, 2, 6, needVolSpike ? "Vol req" : "No vol req", text_size=txtTiny)
+
+    table.cell(dash, 0, 7, "Traps", text_color=color.yellow, text_size=txtTiny)
+    table.cell(dash, 1, 7, bullTrap ? "Bull Trap" : bearTrap ? "Bear Trap" : "—", text_size=txtTiny)
+    table.cell(dash, 2, 7, "Vol+Rejection", text_size=txtTiny)
+
+    table.cell(dash, 0, 8, "Score", bgcolor=color.new(color.yellow, 0), text_color=color.black, text_size=txtSmall)
+    table.cell(dash, 1, 8, enableScore ? scoreText : "OFF", bgcolor=color.new(color.yellow, 0), text_color=color.black, text_size=txtSmall)
+    table.cell(dash, 2, 8, "Educational", bgcolor=color.new(color.yellow, 0), text_color=color.black, text_size=txtSmall)
+
+//====================================================
+// 8) LEGEND (values table)
+//====================================================
+var table legend = table.new(legendPos, 2, 12, border_width=1)
+
+f_color_rsi(v) =>
+    v >= rsiOB ? color.red : v <= rsiOS ? color.lime : color.new(color.gray, 0)
+
+f_color_adx(v) =>
+    v >= adxStrong ? color.lime : color.new(color.gray, 0)
+
+if showLegend and barstate.islast
+    table.clear(legend, 0, 0)
+
+    table.cell(legend, 0, 0, "EGX EMA13", text_color=color.orange, text_size=txtTiny)
+    table.cell(legend, 1, 0, str.tostring(ema13_eg, "#.##"), text_color=color.orange, text_size=txtTiny)
+
+    table.cell(legend, 0, 1, "EGX EMA30", text_color=color.blue, text_size=txtTiny)
+    table.cell(legend, 1, 1, str.tostring(ema30_eg, "#.##"), text_color=color.blue, text_size=txtTiny)
+
+    table.cell(legend, 0, 2, "EGX EMA72", text_color=color.teal, text_size=txtTiny)
+    table.cell(legend, 1, 2, str.tostring(ema72_eg, "#.##"), text_color=color.teal, text_size=txtTiny)
+
+    table.cell(legend, 0, 3, "EGX EMA144", text_color=color.fuchsia, text_size=txtTiny)
+    table.cell(legend, 1, 3, str.tostring(ema144_eg, "#.##"), text_color=color.fuchsia, text_size=txtTiny)
+
+    table.cell(legend, 0, 4, "EGX EMA288", text_color=color.gray, text_size=txtTiny)
+    table.cell(legend, 1, 4, str.tostring(ema288_eg, "#.##"), text_color=color.gray, text_size=txtTiny)
+
+    table.cell(legend, 0, 5, "VWAP", text_color=color.yellow, text_size=txtTiny)
+    table.cell(legend, 1, 5, str.tostring(vwap_val, "#.##"), text_color=color.yellow, text_size=txtTiny)
+
+    table.cell(legend, 0, 6, "RSI", text_color=color.white, text_size=txtTiny)
+    table.cell(legend, 1, 6, str.tostring(rsi, "#.##"), text_color=color.white, bgcolor=f_color_rsi(rsi), text_size=txtTiny)
+
+    table.cell(legend, 0, 7, "ADX", text_color=color.white, text_size=txtTiny)
+    table.cell(legend, 1, 7, str.tostring(adx, "#.##"), text_color=color.white, bgcolor=f_color_adx(adx), text_size=txtTiny)
+
+    table.cell(legend, 0, 8, "+DI / -DI", text_color=color.silver, text_size=txtTiny)
+    table.cell(legend, 1, 8, str.tostring(plusDI, "#.##")+" / "+str.tostring(minusDI, "#.##"), text_color=color.silver, text_size=txtTiny)
+
+    table.cell(legend, 0, 9, "MACD", text_color=color.yellow, text_size=txtTiny)
+    table.cell(legend, 1, 9, macdBuy ? "X↑" : macdSell ? "X↓" : "—", text_color=color.yellow, text_size=txtTiny)
+
+    table.cell(legend, 0, 10, "Bars/Session", text_color=color.white, text_size=txtTiny)
+    table.cell(legend, 1, 10, str.tostring(barsPerSession), text_color=color.white, text_size=txtTiny)
+
+    table.cell(legend, 0, 11, "Profile", text_color=color.white, text_size=txtTiny)
+    table.cell(legend, 1, 11, userType, text_color=color.white, text_size=txtTiny)
+
+//====================================================
+// 9) ALERTS
+//====================================================
+alertcondition(bosUp,      title="BOS Up",      message="BOS Up on {{ticker}}")
+alertcondition(bosDown,    title="BOS Down",    message="BOS Down on {{ticker}}")
+alertcondition(chochUp,    title="CHOCH Up",    message="CHOCH Up on {{ticker}}")
+alertcondition(chochDown,  title="CHOCH Down",  message="CHOCH Down on {{ticker}}")
+
+alertcondition(sweepHigh,  title="Liquidity Sweep High", message="Sweep High on {{ticker}}")
+alertcondition(sweepLow,   title="Liquidity Sweep Low",  message="Sweep Low on {{ticker}}")
+
+alertcondition(bearTrap,   title="Bear Trap", message="Bear Trap on {{ticker}}")
+alertcondition(bullTrap,   title="Bull Trap", message="Bull Trap on {{ticker}}")
+
+alertcondition(climaxVol,  title="Climax Volume", message="Climax Volume on {{ticker}}")

@@ -1,0 +1,105 @@
+//@version=6
+indicator("Smart Technical Expert Analyzer - MASTER FINAL v2.0", overlay=true)
+
+// === INPUTS ===
+emaShortLen = input.int(9, "EMA Short", minval=1)
+emaLongLen = input.int(21, "EMA Long", minval=1)
+smaLen = input.int(50, "SMA")
+ema200Len = input.int(200, "EMA 200")
+rsiLen = input.int(14, "RSI")
+macdFastLen = input.int(12, "MACD Fast")
+macdSlowLen = input.int(26, "MACD Slow")
+macdSigLen = input.int(9, "MACD Signal")
+adxLen = input.int(14, "ADX")
+obvSmoothing = input.int(5, "OBV EMA")
+overExtension = input.float(5.0, "Over Extension %", minval=0.0)
+
+// === MOVING AVERAGES ===
+emaShort = ta.ema(close, emaShortLen)
+emaLong = ta.ema(close, emaLongLen)
+sma = ta.sma(close, smaLen)
+ema200 = ta.ema(close, ema200Len)
+
+plot(emaShort, "EMA 9", color=color.orange)
+plot(emaLong, "EMA 21", color=color.red)
+plot(sma, "SMA 50", color=color.green)
+plot(ema200, "EMA 200", color=color.blue, linewidth=2)
+
+// === RSI ===
+rsi = ta.rsi(close, rsiLen)
+
+// === MACD ===
+[macdLine, signalLine, _] = ta.macd(close, macdFastLen, macdSlowLen, macdSigLen)
+macdHist = macdLine - signalLine
+
+// === ADX ===
+[plusDI, minusDI, adx] = ta.dmi(adxLen, adxLen)
+
+// === OBV ===
+obv = ta.obv
+obvEma = ta.ema(obv, obvSmoothing)
+
+// === Frame based filtering ===
+var string tf = timeframe.period
+isSmallTF = (tf == "1" or tf == "3" or tf == "5" or tf == "15")
+
+// === OVEREXTENSION FILTER ===
+distanceFromEMA = ((close - emaShort) / emaShort) * 100
+allowEntry = distanceFromEMA < overExtension
+
+// === ENTRY CONDITIONS ===
+trendUp = emaShort > emaLong and close > ema200
+momentumStrong = rsi > 50 and macdHist > 0 and plusDI > minusDI and adx > 20
+baseEntry = trendUp and momentumStrong and allowEntry
+
+entrySignal = isSmallTF ? (baseEntry and adx > 25 and rsi > 55) : baseEntry
+
+// === EXIT CONDITIONS ===
+trendDown = emaShort < emaLong and close < ema200
+momentumWeak = rsi < 50 and macdHist < 0 and plusDI < minusDI and adx < 20
+exitSignal = trendDown and momentumWeak
+
+// === DRAW SIGNALS ===
+plotshape(entrySignal, title="Buy Signal", location=location.belowbar, color=color.lime, style=shape.labelup, text="BUY")
+plotshape(exitSignal, title="Sell Signal", location=location.abovebar, color=color.red, style=shape.labeldown, text="SELL")
+bgcolor(entrySignal ? color.new(color.lime, 85) : exitSignal ? color.new(color.red, 85) : na, title="Background Color")
+
+// === SIGNAL LOGGER ===
+var string last_signal = "None"
+var float last_price = na
+var int last_bar = na
+
+if entrySignal
+    last_signal := "BUY"
+    last_price := close
+    last_bar := bar_index
+
+if exitSignal
+    last_signal := "SELL"
+    last_price := close
+    last_bar := bar_index
+
+// === DASHBOARD ===
+var table dash = table.new(position.bottom_right, 6, 7, border_width=1)
+
+if bar_index % 5 == 0
+    table.cell(dash, 0, 0, "Trend", text_color=color.white)
+    table.cell(dash, 1, 0, trendUp ? "Up" : "Down", text_color=trendUp ? color.lime : color.red)
+    
+    table.cell(dash, 0, 1, "MACD", text_color=color.white)
+    table.cell(dash, 1, 1, macdLine > signalLine ? "Bullish" : "Bearish", text_color=macdLine > signalLine ? color.lime : color.red)
+    
+    table.cell(dash, 0, 2, "RSI", text_color=color.white)
+    table.cell(dash, 1, 2, str.tostring(rsi, "#.0"))
+    
+    table.cell(dash, 0, 3, "ADX", text_color=color.white)
+    table.cell(dash, 1, 3, str.tostring(adx, "#.0"))
+    
+    table.cell(dash, 0, 4, "OBV", text_color=color.white)
+    table.cell(dash, 1, 4, obv > obvEma ? "Rising" : "Falling", text_color=obv > obvEma ? color.lime : color.red)
+    
+    table.cell(dash, 0, 5, "Last Signal", text_color=color.white)
+    table.cell(dash, 1, 5, last_signal, text_color=last_signal == "BUY" ? color.lime : last_signal == "SELL" ? color.red : color.gray)
+    
+    table.cell(dash, 0, 6, "Signal Price", text_color=color.white)
+    table.cell(dash, 1, 6, na(last_price) ? "-" : str.tostring(last_price, "#.000"))

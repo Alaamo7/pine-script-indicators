@@ -1,0 +1,77 @@
+//@version=6
+indicator("Smart Investor Pro", overlay=true)
+
+// EMAs for short-term (مضارب)
+ema8 = ta.ema(close, 8)
+ema21 = ta.ema(close, 21)
+
+plot(ema8, "EMA 8 (قصير)", color=color.aqua)
+plot(ema21, "EMA 21 (قصير)", color=color.blue)
+
+// SMA 50 (متوسط)
+sma50 = ta.sma(close, 50)
+plot(sma50, "SMA 50 (متوسط)", color=color.orange)
+
+// EMA 200 (طويل)
+ema200 = ta.ema(close, 200)
+plot(ema200, "EMA 200 (طويل)", color=color.red, linewidth=2)
+
+// Bollinger Bands (للمضارب)
+basis = ta.sma(close, 20)
+dev = 2 * ta.stdev(close, 20)
+upper = basis + dev
+lower = basis - dev
+
+plot(upper, "BB العلوي", color=color.gray)
+plot(lower, "BB السفلي", color=color.gray)
+plot(basis, "BB الوسط", color=color.gray)
+
+// VWAP (للمضارب)
+vwapVal = ta.vwap(hlc3)
+plot(vwapVal, "VWAP", color=color.yellow)
+
+// Ichimoku Cloud (للمستثمر متوسط)
+conversionPeriods = 9
+basePeriods = 26
+laggingSpan2Periods = 52
+displacement = 26
+
+donchian(len) => math.avg(ta.highest(len), ta.lowest(len))
+
+conversionLine = donchian(conversionPeriods)
+baseLine = donchian(basePeriods)
+leadLine1 = math.avg(conversionLine, baseLine)
+leadLine2 = donchian(laggingSpan2Periods)
+
+plot(conversionLine, "Conversion Line", color=color.new(color.green, 50))
+plot(baseLine, "Base Line", color=color.new(color.red, 50))
+plot(close, offset = -displacement + 1, color=color.new(color.blue, 0))
+p1 = plot(leadLine1, offset = displacement - 1, color=color.new(color.green, 80))
+p2 = plot(leadLine2, offset = displacement - 1, color=color.new(color.red, 80))
+fill(p1, p2, color = leadLine1 > leadLine2 ? color.new(color.green,90) : color.new(color.red,90))
+
+// RSI (مؤشر منفصل - للمضارب)
+rsiLength = 14
+rsi = ta.rsi(close, rsiLength)
+rsi_overbought = 70
+rsi_oversold = 30
+
+rsiColor = rsi > rsi_overbought ? color.red : rsi < rsi_oversold ? color.green : color.gray
+plot(rsi, "RSI", color=rsiColor)
+
+// MACD (مؤشر منفصل - للمستثمر قصير/متوسط)
+fastLength = 12
+slowLength = 26
+signalLength = 9
+
+[macdLine, signalLine, histLine] = ta.macd(close, fastLength, slowLength, signalLength)
+plot(macdLine, color=color.green, title="MACD Line")
+plot(signalLine, color=color.red, title="Signal Line")
+plot(histLine, color=color.gray, style=plot.style_histogram, title="Histogram")
+
+// إشارات تنبيهية
+longCondition = ta.crossover(ema8, ema21)
+shortCondition = ta.crossunder(ema8, ema21)
+
+alertcondition(longCondition, "إشارة شراء (قصير)", "EMA 8 crossed above EMA 21")
+alertcondition(shortCondition, "إشارة بيع (قصير)", "EMA 8 crossed below EMA 21")

@@ -1,0 +1,62 @@
+//@version=6
+indicator("Long Term Investor Pro (with Buy/Sell Arrows)", overlay=true)
+
+// --- Inputs ---
+emaLength = input.int(200, "EMA Length")
+macdFast = input.int(12, "MACD Fast Length")
+macdSlow = input.int(26, "MACD Slow Length")
+macdSignal = input.int(9, "MACD Signal Length")
+rsiLength = input.int(21, "RSI Length")
+supportResistLength = input.int(50, "Support/Resistance Length")
+tpPerc = input.float(0.15, "Take Profit %")
+slPerc = input.float(0.08, "Stop Loss %")
+
+// --- Calculations ---
+ema = ta.ema(close, emaLength)
+[macdLine, signalLine, _] = ta.macd(close, macdFast, macdSlow, macdSignal)
+macdHist = macdLine - signalLine
+rsi = ta.rsi(close, rsiLength)
+
+// --- Conditions ---
+longCondition = close > ema and macdHist > 0 and rsi < 70
+shortCondition = close < ema or macdHist < 0
+
+// --- Alerts ---
+if (longCondition)
+    alert("🚀 فرصة شراء استثمارية طويلة الأجل!", alert.freq_once_per_bar_close)
+
+if (shortCondition)
+    alert("⚠️ إشارة بيع أو خروج استثماري", alert.freq_once_per_bar_close)
+
+// --- Support and Resistance (last 50 candles) ---
+var float support = na
+var float resistance = na
+
+if (bar_index > supportResistLength)
+    support := ta.lowest(low, supportResistLength)
+    resistance := ta.highest(high, supportResistLength)
+
+plot(support, title="Support", color=color.green, linewidth=2, style=plot.style_linebr)
+plot(resistance, title="Resistance", color=color.red, linewidth=2, style=plot.style_linebr)
+
+// --- Stop Loss and Take Profit Levels ---
+var float entryPrice = na
+var bool inTrade = false
+
+if (longCondition and not inTrade)
+    entryPrice := close
+    inTrade := true
+
+if (shortCondition and inTrade)
+    entryPrice := na
+    inTrade := false
+
+sl = entryPrice * (1 - slPerc)
+tp = entryPrice * (1 + tpPerc)
+
+plot(inTrade ? sl : na, title="Stop Loss", color=color.red, style=plot.style_circles, linewidth=1)
+plot(inTrade ? tp : na, title="Take Profit", color=color.green, style=plot.style_circles, linewidth=1)
+
+// --- Buy/Sell Arrows ---
+plotshape(longCondition, title="Buy Arrow", location=location.belowbar, color=color.green, style=shape.labelup, text="BUY", size=size.small)
+plotshape(shortCondition, title="Sell Arrow", location=location.abovebar, color=color.red, style=shape.labeldown, text="SELL", size=size.small)

@@ -1,0 +1,62 @@
+//@version=5
+indicator("SMC Advanced Suite (Liquidity, OB, FVG, Structure, Volume)", overlay=true, max_labels_count=500, max_lines_count=500)
+
+//=============== 1. السيولة (Liquidity Zones) ===============
+ph = ta.pivothigh(high, 5, 5)
+pl = ta.pivotlow(low, 5, 5)
+plotshape(ph, style=shape.triangleup, location=location.abovebar, color=color.blue, size=size.tiny, title="Liquidity High")
+plotshape(pl, style=shape.triangledown, location=location.belowbar, color=color.orange, size=size.tiny, title="Liquidity Low")
+
+//=============== 2. اصطياد الستوبات (Stop Hunts) ===============
+last_liq_high = ta.valuewhen(ph, high, 0)
+last_liq_low = ta.valuewhen(pl, low, 0)
+stop_hunt_up = na(last_liq_high) ? false : (high > last_liq_high and close < last_liq_high)
+stop_hunt_dn = na(last_liq_low) ? false : (low < last_liq_low and close > last_liq_low)
+plotshape(stop_hunt_up, style=shape.xcross, location=location.abovebar, color=color.red, size=size.small, title="Stop Hunt Up")
+plotshape(stop_hunt_dn, style=shape.xcross, location=location.belowbar, color=color.green, size=size.small, title="Stop Hunt Down")
+
+//=============== 3. الـ Order Blocks ===============
+is_bull_ob = ta.pivotlow(low, 2, 2) and close[2] < open[2]
+is_bear_ob = ta.pivothigh(high, 2, 2) and close[2] > open[2]
+// رسم مستطيل للـ Order Block
+var float ob_bull_price = na
+var float ob_bear_price = na
+if is_bull_ob
+    ob_bull_price := low[2]
+        box.new(bar_index[2], low[2], bar_index, low[2] + (high[2]-low[2])/2, border_color=color.green, bgcolor=color.new(color.green,80), extend=extend.right)
+        if is_bear_ob
+            ob_bear_price := high[2]
+                box.new(bar_index[2], high[2], bar_index, high[2] - (high[2]-low[2])/2, border_color=color.red, bgcolor=color.new(color.red,80), extend=extend.right)
+
+                //=============== 4. الفجوات السعريّة (Fair Value Gap - FVG) ===============
+                fvg_up = low[1] > high[2]
+                fvg_dn = high[1] < low[2]
+                bgcolor(fvg_up ? color.new(color.purple, 90) : na, offset=-1, title="FVG Up")
+                bgcolor(fvg_dn ? color.new(color.yellow, 90) : na, offset=-1, title="FVG Down")
+
+                //=============== 5. تحديد الاتجاه العام (Market Structure) ===============
+                var string structure = ""
+                is_hh = ph and high > ta.valuewhen(ph, high, 1)
+                is_hl = pl and low > ta.valuewhen(pl, low, 1)
+                is_lh = ph and high < ta.valuewhen(ph, high, 1)
+                is_ll = pl and low < ta.valuewhen(pl, low, 1)
+                structure := is_hh ? "HH" : is_hl ? "HL" : is_lh ? "LH" : is_ll ? "LL" : structure
+                if is_hh or is_hl or is_lh or is_ll
+                    label.new(bar_index, high, structure, color=color.gray, style=label.style_label_down, size=size.tiny, textcolor=color.white)
+
+                    //=============== 6. نقاط دخول محتملة (Entry Signals) ===============
+                    vol_spike = volume > ta.sma(volume, 20) * 2
+                    entry_long  = stop_hunt_dn and vol_spike
+                    entry_short = stop_hunt_up and vol_spike
+                    plotshape(entry_long, style=shape.labelup, location=location.belowbar, color=color.lime, title="Entry Long", text="LONG")
+                    plotshape(entry_short, style=shape.labeldown, location=location.abovebar, color=color.red, title="Entry Short", text="SHORT")
+
+                    //=============== 7. انفجارات الحجم (Volume Spike) ===============
+                    plotshape(vol_spike, style=shape.circle, location=location.bottom, color=color.teal, size=size.tiny, title="Volume Spike")
+
+                    //=============== 8. التظليل البصري للمناطق المهمة (Zone Highlights) ===============
+                    bgcolor(stop_hunt_up ? color.new(color.red, 90) : na, title="Stop Hunt Zone Up")
+                    bgcolor(stop_hunt_dn ? color.new(color.green, 90) : na, title="Stop Hunt Zone Down")
+
+                    //=============== 9. دليل مرئي باللون والإشارات لكل مكون ===============
+                    // (تم دمج الألوان والأشكال في كل عنصر أعلاه)

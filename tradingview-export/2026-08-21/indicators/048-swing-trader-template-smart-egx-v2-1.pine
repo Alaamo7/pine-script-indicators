@@ -1,0 +1,67 @@
+//@version=5
+indicator("Swing Trader Template - Smart EGX v2.1", overlay=true, max_lines_count=500, max_labels_count=500)
+
+// === إعدادات الظهور ===
+showRSI     = input.bool(true, title="📈 إظهار RSI")
+showVolume  = input.bool(false, title="📊 إظهار الحجم")
+showSupportResistance = input.bool(true, title="📌 إظهار الدعم والمقاومة اليدوية")
+
+// === المتوسطات المتحركة ===
+ema9    = ta.ema(close, 9)
+ema21   = ta.ema(close, 21)
+sma50   = ta.sma(close, 50)
+sma200  = ta.sma(close, 200)
+
+plot(ema9, color=color.orange, linewidth=1, title="EMA 9")
+plot(ema21, color=color.blue, linewidth=1, title="EMA 21")
+plot(sma50, color=color.gray, linewidth=1, title="SMA 50")
+plot(sma200, color=color.black, linewidth=1, title="SMA 200")
+
+// === مؤشر RSI ===
+rsi = ta.rsi(close, 14)
+rsiOverbought = 70
+rsiOversold = 30
+
+hline(rsiOverbought, "RSI Overbought", color=color.red)
+hline(50, "RSI Mid", color=color.gray)
+hline(rsiOversold, "RSI Oversold", color=color.green)
+plot(showRSI ? rsi : na, title="RSI", color=color.purple, linewidth=2, display=display.pane)
+
+// === الحجم ===
+plot(showVolume ? volume : na, title="الحجم", color=color.teal, style=plot.style_columns, display=display.pane)
+
+// === دعم ومقاومة يدوي ===
+resistance = input.float(0.0, title="مستوى المقاومة (اختياري)")
+support    = input.float(0.0, title="مستوى الدعم (اختياري)")
+
+plot(showSupportResistance and resistance != 0 ? resistance : na, title="المقاومة", color=color.red, linewidth=2)
+plot(showSupportResistance and support != 0 ? support : na, title="الدعم", color=color.green, linewidth=2)
+
+// === اتجاه السهم ===
+trend_up   = ema9 > ema21 and ema21 > sma50
+trend_down = ema9 < ema21 and ema21 < sma50
+trend_sideways = math.abs(ema9 - ema21) < (close * 0.005)
+
+bgcolor(trend_up ? color.new(color.green, 85) : na, title="اتجاه صاعد")
+bgcolor(trend_down ? color.new(color.red, 85) : na, title="اتجاه هابط")
+bgcolor(trend_sideways ? color.new(color.yellow, 85) : na, title="اتجاه عرضي")
+barcolor(trend_up ? color.green : trend_down ? color.red : trend_sideways ? color.orange : na)
+
+// === إشارة شراء — تقاطع إيجابي + RSI < 60 + السعر فوق SMA50 ===
+buySignal = ta.crossover(ema9, ema21) and rsi < 60 and close > sma50
+plotshape(buySignal, title="إشارة شراء", location=location.belowbar, color=color.green, style=shape.labelup, text="BUY")
+
+// === تنبيه للإشارة ===
+alertcondition(buySignal, title="تنبيه إشارة شراء", message="📢 إشارة شراء على الشارت - تقاطع EMA مع RSI")
+
+// === الدليل المفتاحي على الشارت ===
+if bar_index == ta.highest(bar_index, 1)
+    label.new(
+            x=bar_index,
+                    y=high,
+                            text="🔸 دليل الألوان:\n🟠 EMA 9\n🔵 EMA 21\n⚪ SMA 50\n⚫ SMA 200\n🟣 RSI\n🔴 مقاومة\n🟢 دعم\n🟩 خلفية خضراء: اتجاه صاعد\n🟥 خلفية حمراء: اتجاه هابط\n🟨 خلفية صفراء: اتجاه عرضي\n📍 BUY: إشارة شراء",
+                                    style=label.style_label_left,
+                                            textcolor=color.white,
+                                                    size=size.small,
+                                                            bgcolor=color.gray
+                                                                )

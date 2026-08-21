@@ -1,0 +1,36 @@
+//@version=5
+indicator("Smart Investor Pro - Oscillators (v5 Final)", shorttitle="SI Pro - Oscillators (v5)", overlay=false)
+
+// --- تعريف الألوان ---
+color color_macd_line = color.new(color.blue, 0)
+color color_signal_line = color.new(color.orange, 0)
+color color_rsi_line = color.new(color.purple, 0)
+
+// --- دالة مساعدة لإنشاء خانة في الدليل المفتاحي ---
+f_add_legend_entry(table_id, row, indicator_name, indicator_color) =>
+    table.cell(table_id, 0, row, text="■", text_color=indicator_color, text_size=size.small)
+    table.cell(table_id, 1, row, text=indicator_name, text_size=size.small)
+
+// --- MACD (للمستثمر قصير المدى) ---
+[macdLine, signalLine, histLine] = ta.macd(close, 12, 26, 9)
+plot(macdLine, title="MACD Line", color=color_macd_line)
+plot(signalLine, title="Signal Line", color=color_signal_line)
+macd_hist_color = histLine >= 0 ? (histLine[1] < histLine ? color.new(color.green, 40) : color.new(color.green, 70)) : (histLine[1] > histLine ? color.new(color.red, 40) : color.new(color.red, 70))
+plot(histLine, title="MACD Histogram", style=plot.style_columns, color=macd_hist_color)
+hline(0, "MACD Zero Line", color.gray, hline.style_dashed)
+
+// --- RSI (مفيد للمضاربة) ---
+rsi = ta.rsi(close, 14)
+rsi_overbought = hline(70, "RSI Overbought", color.red)
+rsi_oversold = hline(30, "RSI Oversold", color.green)
+fill(rsi_overbought, rsi_oversold, color=color.new(color.purple, 90), title="RSI Background")
+plot(rsi, "RSI", color=color_rsi_line)
+
+// --- الدليل المفتاحي (Legend) ---
+// ** تم التعديل هنا لنقل الجدول إلى اليمين **
+var table legend = table.new(position.top_right, 2, 3, border_width=1)
+
+if barstate.islast
+    table.cell(legend, 1, 0, "دليل المؤشرات", bgcolor=color.new(color.gray, 50))
+    f_add_legend_entry(legend, 1, "MACD / Signal", color_macd_line)
+    f_add_legend_entry(legend, 2, "RSI", color_rsi_line)
