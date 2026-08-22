@@ -10,7 +10,18 @@ Private archival export of the remaining Pine Script assets from the owner's Tra
 
 ## Important
 
-These files preserve the source as copied from TradingView. They have not been individually recompiled, backtested, or normalized during this archival transfer. Review and validate each script in TradingView Pine Editor before relying on it.
+These files preserve the source as copied from TradingView. They were not normalized during the archival transfer. A separate TradingView validation run was completed on 2026-08-22; review its evidence before relying on any script.
+
+## TradingView validation — 2026-08-22
+
+- All 120 scripts were tested individually on `EGX:RMDA` after removing the default indicator and clearing the chart between tests.
+- 115 scripts loaded and rendered successfully.
+- 5 scripts produced documented Pine compilation errors.
+- Strategy Tester reports and screenshots were captured for all 7 strategies.
+- Every `.pine` file now has an adjacent `.tests` folder containing `TEST-REPORT.md` and its TradingView screenshot(s).
+- [Open the complete test index](test-results/2026-08-22/README.md).
+
+Historical strategy results are not investment advice and do not guarantee future performance.
 
 ## File Index
 
