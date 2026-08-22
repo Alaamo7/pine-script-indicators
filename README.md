@@ -20,6 +20,8 @@ Testing was performed individually on `EGX:RMDA`, clearing the chart between tes
 
 **Full validation evidence:** [`tradingview-export/2026-08-21/test-results/2026-08-22/`](tradingview-export/2026-08-21/test-results/2026-08-22/)
 
+**Engineering case study:** [`docs/case-studies/2026-08-22-tradingview-validation.md`](docs/case-studies/2026-08-22-tradingview-validation.md)
+
 > A successful compile and chart render confirm technical compatibility for the tested setup; they do not prove trading profitability or future performance.
 
 ## Portfolio Positioning
@@ -70,7 +72,7 @@ See the archived TradingView export: [`tradingview-export/2026-08-21/`](tradingv
 | `indicators/` | Active, beta, and experimental Pine indicators. |
 | `strategies/` | Backtest strategies and trading logic prototypes. |
 | `archive/` | Legacy, deprecated, incomplete, or reference-only scripts. |
-| `docs/` | Documentation, script index, roadmap, disclaimers, case-study templates, and knowledge base. |
+| `docs/` | Documentation, script index, roadmap, disclaimers, case studies, and knowledge base. |
 | `tradingview-export/` | Source-preserving TradingView archive plus validation evidence. |
 
 ## Quality Principles
@@ -100,11 +102,19 @@ Read more: [`docs/AI-ROADMAP.md`](docs/AI-ROADMAP.md)
 
 ## Case Studies
 
-A reusable template is available for documenting real chart reviews and signal outcomes:
+### TradingView validation of 120 Pine Scripts
+
+A documented QA case study covering the **120-script** TradingView validation run, including methodology, results, evidence structure, engineering decisions, limitations, and next steps.
+
+[`Read the validation case study →`](docs/case-studies/2026-08-22-tradingview-validation.md)
+
+### Future market-behavior case studies
+
+A reusable template is available for future chart-review and signal-outcome studies where sufficient evidence exists:
 
 [`docs/case-studies/CASE-STUDY-TEMPLATE.md`](docs/case-studies/CASE-STUDY-TEMPLATE.md)
 
-Suggested case-study examples:
+Potential candidates include:
 
 - Smart EGX Liquidity S/R Dashboard on EGX30 daily.
 - MM Trap Pro on a 15-minute EGX stock chart.
