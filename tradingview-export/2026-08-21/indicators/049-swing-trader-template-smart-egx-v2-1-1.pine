@@ -1,4 +1,4 @@
-//@version=5
+//@version=6
 indicator("Swing Trader Template - Smart EGX v2.1", overlay=true, max_lines_count=500, max_labels_count=500)
 
 // === إعدادات الظهور ===
@@ -55,13 +55,11 @@ plotshape(buySignal, title="إشارة شراء", location=location.belowbar, co
 alertcondition(buySignal, title="تنبيه إشارة شراء", message="📢 إشارة شراء على الشارت - تقاطع EMA مع RSI")
 
 // === الدليل المفتاحي على الشارت ===
-if bar_index == ta.highest(bar_index, 1)
-    label.new(
-          x=bar_index,
-                y=high,
-                      text="🔸 دليل الألوان:\n🟠 EMA 9\n🔵 EMA 21\n⚪ SMA 50\n⚫ SMA 200\n🟣 RSI\n🔴 مقاومة\n🟢 دعم\n🟩 خلفية خضراء: اتجاه صاعد\n🟥 خلفية حمراء: اتجاه هابط\n🟨 خلفية صفراء: اتجاه عرضي\n📍 BUY: إشارة شراء",
-                            style=label.style_label_left,
-                                  textcolor=color.white,
-                                        size=size.small,
-                                              bgcolor=color.gray
-                                                  )
+string legendText = "🔸 دليل الألوان:\n🟠 EMA 9\n🔵 EMA 21\n⚪ SMA 50\n⚫ SMA 200\n🟣 RSI\n🔴 مقاومة\n🟢 دعم\n🟩 خلفية خضراء: اتجاه صاعد\n🟥 خلفية حمراء: اتجاه هابط\n🟨 خلفية صفراء: اتجاه عرضي\n📍 BUY: إشارة شراء"
+var label legendLabel = na
+if barstate.islast
+    if na(legendLabel)
+        legendLabel := label.new(x=bar_index, y=high, text=legendText, style=label.style_label_left, textcolor=color.white, size=size.small, color=color.gray)
+    else
+        label.set_xy(legendLabel, bar_index, high)
+        label.set_text(legendLabel, legendText)

@@ -3,8 +3,9 @@
 تم اختبار جميع السكربتات المحفوظة بصورة منفردة بعد إزالة المؤشر الافتراضي وأي سكربت سابق من الرسم.
 
 - **إجمالي السكربتات:** 120
-- **تم تحميلها وعرضها بنجاح:** 115
-- **أخطاء Pine موثّقة:** 5
+- **تم تحميلها وعرضها بنجاح بعد الإصلاح وإعادة الاختبار:** 120
+- **أخطاء Pine المتبقية:** 0
+- **أخطاء أصلية تم إصلاحها وإعادة اختبارها:** 5
 - **الاستراتيجيات ذات تقرير Strategy Tester وصورة:** 7 من 7
 - **رمز الاختبار:** EGX:RMDA
 - **الإطارات الزمنية:** 15 دقيقة، 4 ساعات، يومي حسب طبيعة السكربت
@@ -48,7 +49,7 @@
 | 033 | Momentum Indicators Legend (SI Pro) | Indicator | ✅ تم التحميل والعرض بنجاح | [1 day](../../indicators/033-momentum-indicators-legend-si-pro.tests/TEST-REPORT.md) |
 | 034 | Multi Trader Indicator with Legend + MACD | Indicator | ✅ تم التحميل والعرض بنجاح | [4 hours](../../indicators/034-multi-trader-indicator-with-legend-macd.tests/TEST-REPORT.md) |
 | 035 | كشف تلاعبات الميكر - موبايل + دليل ألوان - إصدار خفيف | Indicator | ✅ تم التحميل والعرض بنجاح | [15 minutes](../../indicators/035-script.tests/TEST-REPORT.md) |
-| 036 | Smart Investor Pro - All-in-One v6.1 (With Legend) | Indicator | ❌ خطأ Pine موثّق | [1 day](../../indicators/036-smart-investor-pro-all-in-one-v6-1-with-legend.tests/TEST-REPORT.md) |
+| 036 | Smart Investor Pro - All-in-One v6.1 (With Legend) | Indicator | ✅ تم الإصلاح وإعادة الاختبار بنجاح | [1 day](../../indicators/036-smart-investor-pro-all-in-one-v6-1-with-legend.tests/TEST-REPORT.md) |
 | 037 | Scalper Pro - Mobile + دليل مفتاحي | Indicator | ✅ تم التحميل والعرض بنجاح | [15 minutes](../../indicators/037-scalper-pro-mobile.tests/TEST-REPORT.md) |
 | 038 | Day Trader Pro - Mobile + دليل مفتاحي | Indicator | ✅ تم التحميل والعرض بنجاح | [15 minutes](../../indicators/038-day-trader-pro-mobile.tests/TEST-REPORT.md) |
 | 039 | Swing Trader Pro - Mobile + دليل مفتاحي | Indicator | ✅ تم التحميل والعرض بنجاح | [4 hours](../../indicators/039-swing-trader-pro-mobile.tests/TEST-REPORT.md) |
@@ -57,12 +58,12 @@
 | 042 | Support & Resistance Pro - Mobile | Indicator | ✅ تم التحميل والعرض بنجاح | [4 hours](../../indicators/042-support-resistance-pro-mobile.tests/TEST-REPORT.md) |
 | 043 | Swing Trader Template - Smart EGX v2 | Indicator | ✅ تم التحميل والعرض بنجاح | [4 hours](../../indicators/043-swing-trader-template-smart-egx-v2.tests/TEST-REPORT.md) |
 | 044 | Swing Trader Template - Smart EGX v2 1 | Indicator | ✅ تم التحميل والعرض بنجاح | [4 hours](../../indicators/044-swing-trader-template-smart-egx-v2-1.tests/TEST-REPORT.md) |
-| 045 | Swing Trader Template - Smart EGX v2 2 | Indicator | ❌ خطأ Pine موثّق | [4 hours](../../indicators/045-swing-trader-template-smart-egx-v2-2.tests/TEST-REPORT.md) |
+| 045 | Swing Trader Template - Smart EGX v2 2 | Indicator | ✅ تم الإصلاح وإعادة الاختبار بنجاح | [4 hours](../../indicators/045-swing-trader-template-smart-egx-v2-2.tests/TEST-REPORT.md) |
 | 046 | Swing Trader Template - Smart EGX v2 3 | Indicator | ✅ تم التحميل والعرض بنجاح | [4 hours](../../indicators/046-swing-trader-template-smart-egx-v2-3.tests/TEST-REPORT.md) |
-| 047 | Swing Trader Template - Smart EGX v2 4 | Indicator | ❌ خطأ Pine موثّق | [4 hours](../../indicators/047-swing-trader-template-smart-egx-v2-4.tests/TEST-REPORT.md) |
+| 047 | Swing Trader Template - Smart EGX v2 4 | Indicator | ✅ تم الإصلاح وإعادة الاختبار بنجاح | [4 hours](../../indicators/047-swing-trader-template-smart-egx-v2-4.tests/TEST-REPORT.md) |
 | 048 | Swing Trader Template - Smart EGX v2.1 | Indicator | ✅ تم التحميل والعرض بنجاح | [4 hours](../../indicators/048-swing-trader-template-smart-egx-v2-1.tests/TEST-REPORT.md) |
-| 049 | Swing Trader Template - Smart EGX v2.1 1 | Indicator | ❌ خطأ Pine موثّق | [4 hours](../../indicators/049-swing-trader-template-smart-egx-v2-1-1.tests/TEST-REPORT.md) |
-| 050 | Swing Trader Template - Smart EGX v2.1 2 | Indicator | ❌ خطأ Pine موثّق | [4 hours](../../indicators/050-swing-trader-template-smart-egx-v2-1-2.tests/TEST-REPORT.md) |
+| 049 | Swing Trader Template - Smart EGX v2.1 1 | Indicator | ✅ تم الإصلاح وإعادة الاختبار بنجاح | [4 hours](../../indicators/049-swing-trader-template-smart-egx-v2-1-1.tests/TEST-REPORT.md) |
+| 050 | Swing Trader Template - Smart EGX v2.1 2 | Indicator | ✅ تم الإصلاح وإعادة الاختبار بنجاح | [4 hours](../../indicators/050-swing-trader-template-smart-egx-v2-1-2.tests/TEST-REPORT.md) |
 | 051 | Smart EGX Pro v1.2 – السوق المصري 2 | Indicator | ✅ تم التحميل والعرض بنجاح | [1 day](../../indicators/051-smart-egx-pro-v1-2-2.tests/TEST-REPORT.md) |
 | 052 | Smart EGX Pro v1.3 – السوق المصري 1 | Indicator | ✅ تم التحميل والعرض بنجاح | [1 day](../../indicators/052-smart-egx-pro-v1-3-1.tests/TEST-REPORT.md) |
 | 053 | Chart Indicators Legend (SI Pro) | Indicator | ✅ تم التحميل والعرض بنجاح | [1 day](../../indicators/053-chart-indicators-legend-si-pro.tests/TEST-REPORT.md) |
