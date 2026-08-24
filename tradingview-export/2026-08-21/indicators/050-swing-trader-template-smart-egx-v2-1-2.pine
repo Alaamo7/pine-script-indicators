@@ -1,4 +1,4 @@
-//@version=5
+//@version=6
 indicator("Swing Trader Template - Smart EGX v2.1 (Corrected v4)", overlay=true, max_lines_count=500, max_labels_count=500)
 
 // === إعدادات الظهور ===
@@ -61,32 +61,13 @@ alertcondition(buySignal, title="تنبيه إشارة شراء", message="📢 
 
 // === الدليل المفتاحي على الشارت ===
 // تعريف نص الوسم في متغير منفصل لتبسيط استدعاء label.new
-var string g_keyLabelText =
-     "دليل الألوان:\n" +
-     "EMA 9: برتقالي\n" +
-     "EMA 21: أزرق\n" +
-     "SMA 50: رمادي\n" +
-     "SMA 200: أسود\n" +
-     "RSI: بنفسجي\n" +
-     "مقاومة: أحمر\n" +
-     "دعم: أخضر\n" +
-     "خلفية خضراء: اتجاه صاعد\n" +
-     "خلفية حمراء: اتجاه هابط\n" +
-     "خلفية صفراء: اتجاه عرضي\n" +
-     "BUY: إشارة شراء" // لا تحتاج فاصلة هنا لأن هذا تعريف متغير
+var string g_keyLabelText = "دليل الألوان:\nEMA 9: برتقالي\nEMA 21: أزرق\nSMA 50: رمادي\nSMA 200: أسود\nRSI: بنفسجي\nمقاومة: أحمر\nدعم: أخضر\nخلفية خضراء: اتجاه صاعد\nخلفية حمراء: اتجاه هابط\nخلفية صفراء: اتجاه عرضي\nBUY: إشارة شراء"
 
 var label g_keyLabel = na // تعريف متغير الوسم مرة واحدة
 
-if (barstate.islast) // يُنفذ فقط على آخر شمعة (الحالية) في الرسم البياني
-    label.delete(g_keyLabel) // حذف المثيل السابق للوسم
-    // الرجاء التأكد من أن المسافات البادئة للأسطر التالية صحيحة (مسافات فقط)
-    g_keyLabel := label.new( // السطر الذي يبدأ فيه استدعاء label.new
-        // الوسائط التالية يجب أن تكون مزاحة لليمين (indented) أكثر من السطر أعلاه
-        x = bar_index,
-        y = high,
-        text = g_keyLabelText, // استخدام النص المُعد مسبقًا
-        style = label.style_label_left,
-        color = color.new(color.gray, 20),
-        textcolor = color.white,
-        size = size.small // الوسيط الأخير لا يحتاج إلى فاصلة بعده
-    ) // هذا القوس الختامي يجب أن يكون مزاحًا ليتماشى مع بداية السطر 'g_keyLabel :='
+if barstate.islast
+    if na(g_keyLabel)
+        g_keyLabel := label.new(x=bar_index, y=high, text=g_keyLabelText, style=label.style_label_left, color=color.new(color.gray, 20), textcolor=color.white, size=size.small)
+    else
+        label.set_xy(g_keyLabel, bar_index, high)
+        label.set_text(g_keyLabel, g_keyLabelText)

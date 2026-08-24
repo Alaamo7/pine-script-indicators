@@ -2,6 +2,13 @@
 
 All notable repository-level changes are documented here. This changelog tracks repository organization, validation evidence, documentation, and portfolio engineering work; it does not claim trading profitability.
 
+## 2026-08-24 — Full 120/120 validation integration
+
+- Integrated the five repaired Pine scripts and their isolated TradingView evidence onto the latest `main` baseline.
+- Updated the public validation status to **120 / 120** successful loading and rendering checks.
+- Added two evidence-based strategy case studies covering both positive and negative historical outcomes.
+- Added automated portfolio-quality validation, an explicit license, and a security policy.
+
 ## 2026-08-22 — TradingView validation milestone
 
 - Completed isolated TradingView validation for **120 archived Pine scripts**.

@@ -15,8 +15,8 @@ These files preserve the source as copied from TradingView. They were not normal
 ## TradingView validation — 2026-08-22
 
 - All 120 scripts were tested individually on `EGX:RMDA` after removing the default indicator and clearing the chart between tests.
-- 115 scripts loaded and rendered successfully.
-- 5 scripts produced documented Pine compilation errors.
+- All 120 scripts loaded and rendered successfully after a repair and re-test pass.
+- Five original compilation failures (036, 045, 047, 049, and 050) were corrected, migrated or confirmed on Pine v6, and re-tested on 2026-08-22.
 - Strategy Tester reports and screenshots were captured for all 7 strategies.
 - Every `.pine` file now has an adjacent `.tests` folder containing `TEST-REPORT.md` and its TradingView screenshot(s).
 - [Open the complete test index](test-results/2026-08-22/README.md).

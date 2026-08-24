@@ -4,6 +4,8 @@ A structured TradingView/Pine Script repository focused on EGX technical-analysi
 
 This project covers trend analysis, momentum, liquidity, smart-money concepts, trap detection, price matrices, risk dashboards, and long-only backtesting workflows.
 
+[![Portfolio quality](https://github.com/Alaamo7/pine-script-indicators/actions/workflows/portfolio-quality.yml/badge.svg)](https://github.com/Alaamo7/pine-script-indicators/actions/workflows/portfolio-quality.yml)
+
 ## Verified TradingView Validation Snapshot
 
 A full validation run was completed on **2026-08-22** against the archived TradingView export.
@@ -11,8 +13,8 @@ A full validation run was completed on **2026-08-22** against the archived Tradi
 | Validation item | Result |
 |---|---:|
 | Pine scripts tested individually | **120** |
-| Loaded and rendered successfully | **115** |
-| Documented Pine compilation errors | **5** |
+| Loaded and rendered successfully after repair and re-test | **120** |
+| Original compilation errors repaired and re-tested | **5 / 5** |
 | Strategies tested | **7** |
 | Strategy Tester evidence captured | **7 / 7** |
 
@@ -46,7 +48,7 @@ The maintained toolkit is separated from the larger archival TradingView export 
 | Experimental indicators | 3 | Research-oriented tools requiring continued validation. |
 | Backtest strategies | 2 | EGX-friendly long-only strategy prototypes. |
 | Legacy / Archive scripts | 3 | Preserved for reference, not primary production use. |
-| Archived TradingView scripts | 120 | Individually tested; 115 passed loading/render checks and 5 have documented compile errors. |
+| Archived TradingView scripts | 120 | Individually tested; 120 / 120 passed loading/render checks after five original compile errors were repaired and re-tested. |
 
 See the maintained toolkit index: [`docs/scripts-index.md`](docs/scripts-index.md)
 
@@ -108,6 +110,11 @@ A documented QA case study covering the **120-script** TradingView validation ru
 
 [`Read the validation case study →`](docs/case-studies/2026-08-22-tradingview-validation.md)
 
+### Verified strategy case studies
+
+- [`Ultimate Scalping Pro v2.6`](docs/case-studies/ultimate-scalping-pro-v2-6.md) — positive historical result with documented assumptions and limitations.
+- [`Integrated Swing Strategy`](docs/case-studies/integrated-swing-strategy.md) — negative historical result documented transparently with engineering lessons.
+
 ### Future market-behavior case studies
 
 A reusable template is available for future chart-review and signal-outcome studies where sufficient evidence exists:
@@ -120,6 +127,10 @@ Potential candidates include:
 - MM Trap Pro on a 15-minute EGX stock chart.
 - EGX Pro Price Matrix on a swing-trading setup.
 - Reverse SMA+RSI Strategy backtest on selected EGX symbols.
+
+## License
+
+Source is published for portfolio viewing and education. Redistribution, resale, modification, or commercial use requires written permission; see [`LICENSE`](LICENSE).
 
 ## Important Disclaimer
 

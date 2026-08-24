@@ -93,43 +93,13 @@ alertcondition(ta.crossover(ema_short1, ema_short2), title="تقاطع EMA لل�
 alertcondition(ta.crossunder(ema_short1, ema_short2), title="تقاطع EMA للمضارب (بيع)", message="EMA 9 crossed below EMA 21")
 
 // ========== دليل الألوان والمؤشرات ========== //
-legendText = "دليل الألوان والمؤشرات:\n"+
-"EMA 9: سماوي - اتجاه سريع\n"+
-"EMA 21: أزرق - اتجاه قصير\n"+
-"EMA 100: بنفسجي - اتجاه متوسط\n"+
-"EMA 200: أحمر - اتجاه رئيسي\n"+
-"SMA 50: برتقالي - متوسط\n"+
-"VWAP: أصفر - متوسط مرجح بالحجم\n"+
-"Bollinger Bands: رمادي - تقلب السعر\n"+
-"MACD: أخضر - زخم\n"+
-"MACD Signal: أحمر - خط الإشارة\n"+
-"MACD Histogram: رمادي - أعمدة الزخم\n"+
-"Ichimoku Conv.: أخضر فاتح شفاف\n"+
-"Ichimoku Base: أحمر فاتح شفاف\n"+
-"Senkou A: أخضر شفاف\n"+
-"Senkou B: أحمر شفاف\n"+
-"سحابة صاعدة: أخضر فاتح جدًا\n"+
-"سحابة هابطة: أحمر فاتح جدًا\n"+
-"RSI > 70: أحمر - تشبع شراء\n"+
-"RSI < 30: أخضر - تشبع بيع\n"+
-"RSI عادي: رمادي\n"+
-"منطقة طلب: مثلث أخضر\n"+
-"منطقة عرض: مثلث أحمر"
+string legendText = "دليل الألوان والمؤشرات:\nEMA 9: سماوي - اتجاه سريع\nEMA 21: أزرق - اتجاه قصير\nEMA 100: بنفسجي - اتجاه متوسط\nEMA 200: أحمر - اتجاه رئيسي\nSMA 50: برتقالي - متوسط\nVWAP: أصفر - متوسط مرجح بالحجم\nBollinger Bands: رمادي - تقلب السعر\nMACD: أخضر - زخم\nMACD Signal: أحمر - خط الإشارة\nMACD Histogram: رمادي - أعمدة الزخم\nIchimoku Conv.: أخضر فاتح شفاف\nIchimoku Base: أحمر فاتح شفاف\nSenkou A: أخضر شفاف\nSenkou B: أحمر شفاف\nسحابة صاعدة: أخضر فاتح جدًا\nسحابة هابطة: أحمر فاتح جدًا\nRSI > 70: أحمر - تشبع شراء\nRSI < 30: أخضر - تشبع بيع\nRSI عادي: رمادي\nمنطقة طلب: مثلث أخضر\nمنطقة عرض: مثلث أحمر"
 
 // رسم الدليل أعلى الشارت (label)
-var legendLabel = na
-if bar_index == ta.highest(bar_index, 100)
-    legendLabel := label.new(
-      x = bar_index,
-      y = high,
-      text = legendText,
-      xloc = xloc.bar_index,
-      yloc = yloc.price,
-      color = color.new(color.white, 92),
-      style = label.style_label_down,
-      textcolor = color.black,
-      size = size.normal
-    )
-if not na(legendLabel)
-    label.set_x(legendLabel, bar_index)
-    label.set_y(legendLabel, high)
+var label legendLabel = na
+if barstate.islast
+    if na(legendLabel)
+        legendLabel := label.new(x=bar_index, y=high, text=legendText, xloc=xloc.bar_index, yloc=yloc.price, color=color.new(color.white, 92), style=label.style_label_down, textcolor=color.black, size=size.normal)
+    else
+        label.set_xy(legendLabel, bar_index, high)
+        label.set_text(legendLabel, legendText)
